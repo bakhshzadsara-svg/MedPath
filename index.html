@@ -1,1049 +1,707 @@
-```html
-<!DOCTYPE html>
+from pathlib import Path
+import zipfile, textwrap, json, re
+
+root = Path("/mnt/data/MedPath")
+(root / "assets").mkdir(parents=True, exist_ok=True)
+
+html = r'''<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="description"
-        content="MedPath helps aspiring medical students explore medicine, prepare for applications, find resources and plan their journey."
-    >
-
-    <title>MedPath — Your Path to Medicine</title>
-
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MedPath — Your journey to medicine, organised.">
+  <title>MedPath — Your journey to medicine, organised.</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-<!-- =========================
-     NAVIGATION
-========================= -->
+  <div id="onboarding" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div class="modal onboarding-modal">
+      <button class="icon-button modal-close" id="close-onboarding" aria-label="Close">×</button>
+      <div class="eyebrow">WELCOME TO MEDPATH</div>
+      <h2 id="onboarding-title">Build your journey.</h2>
+      <p class="muted">Your prototype profile stays in this browser. No real online account is created.</p>
+      <form id="onboarding-form">
+        <label>What should we call you?
+          <input id="onboarding-name" required maxlength="60" placeholder="Your name">
+        </label>
+        <label>Where are you on your journey?
+          <select id="onboarding-stage" required></select>
+        </label>
+        <fieldset>
+          <legend>What are your goals?</legend>
+          <div id="onboarding-goals" class="check-grid"></div>
+        </fieldset>
+        <button class="button primary full" type="submit">Start my MedPath journey</button>
+      </form>
+    </div>
+  </div>
 
-<header class="navbar">
+  <div id="experience-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="experience-title">
+    <div class="modal">
+      <button class="icon-button modal-close" data-close-modal="experience-modal" aria-label="Close">×</button>
+      <div class="eyebrow">EXPERIENCE TRACKER</div>
+      <h2 id="experience-title">Log an experience</h2>
+      <form id="experience-form" class="form-grid">
+        <label>Organisation<input name="organisation" required maxlength="100"></label>
+        <label>Role<input name="role" required maxlength="100"></label>
+        <label>Date<input name="date" type="date" required></label>
+        <label>Location<input name="location" maxlength="100"></label>
+        <label>Type<select name="type" id="experience-type"></select></label>
+        <label class="span-2">What did you do?<textarea name="what" rows="3" maxlength="1500"></textarea></label>
+        <label class="span-2">What did you learn?<textarea name="learned" rows="3" maxlength="1500"></textarea></label>
+        <label class="span-2">What skills did you develop?<textarea name="skills" rows="3" maxlength="1500"></textarea></label>
+        <label>Would you recommend it?<select name="recommend"><option>Yes</option><option>Maybe</option><option>No</option></select></label>
+        <button class="button primary span-2" type="submit">Save experience</button>
+      </form>
+    </div>
+  </div>
 
-    <a href="#home" class="logo">
-        <span class="logo-symbol">🩺</span>
-        <span>MedPath</span>
-    </a>
+  <div id="reflection-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reflection-title">
+    <div class="modal">
+      <button class="icon-button modal-close" data-close-modal="reflection-modal" aria-label="Close">×</button>
+      <div class="eyebrow">REFLECTION JOURNAL</div>
+      <h2 id="reflection-title">Write a reflection</h2>
+      <form id="reflection-form" class="form-grid">
+        <label>Experience<input name="experience" required maxlength="120"></label>
+        <label>Date<input name="date" type="date" required></label>
+        <label class="span-2">What happened?<textarea name="happened" rows="3" required maxlength="1500"></textarea></label>
+        <label class="span-2">What did I learn?<textarea name="learned" rows="3" required maxlength="1500"></textarea></label>
+        <label class="span-2">How did it change my understanding of medicine?<textarea name="medicine" rows="3" maxlength="1500"></textarea></label>
+        <label class="span-2">What skills did I develop?<textarea name="skills" rows="3" maxlength="1500"></textarea></label>
+        <label class="span-2">What would I do differently?<textarea name="different" rows="3" maxlength="1500"></textarea></label>
+        <button class="button primary span-2" type="submit">Save reflection</button>
+      </form>
+    </div>
+  </div>
 
-    <nav class="desktop-navigation">
+  <div id="app" class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#dashboard" data-route="dashboard" aria-label="MedPath home">
+        <span class="brand-mark">M</span>
+        <span><strong>MedPath</strong><small>Your journey, organised.</small></span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#dashboard" data-route="dashboard">⌂ <span>Dashboard</span></a>
+        <a href="#resources" data-route="resources">▦ <span>Resources</span></a>
+        <a href="#experience" data-route="experience">✚ <span>Experience</span></a>
+        <a href="#ucat" data-route="ucat">◈ <span>UCAT</span></a>
+        <a href="#roadmap" data-route="roadmap">◇ <span>Roadmap</span></a>
+        <a href="#universities" data-route="universities">⌘ <span>Universities</span></a>
+        <a href="#interviews" data-route="interviews">◎ <span>Interviews</span></a>
+        <a href="#reflections" data-route="reflections">✎ <span>Reflections</span></a>
+        <a href="#progress" data-route="progress">◒ <span>My Progress</span></a>
+        <a href="#saved" data-route="saved">☆ <span>Saved Resources</span></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="#profile" data-route="profile">◉ <span>Profile</span></a>
+        <a href="#settings" data-route="settings">⚙ <span>Settings</span></a>
+        <a href="#about" data-route="about">ⓘ <span>About</span></a>
+      </div>
+    </aside>
 
-        <a href="#home">Home</a>
-
-        <a href="#explore">Explore</a>
-
-        <a href="#ucat">UCAT</a>
-
-        <a href="#universities">Universities</a>
-
-        <a href="#roadmap">Roadmap</a>
-
-    </nav>
-
-    <button
-        class="nav-cta"
-        onclick="openJourney()"
-    >
-        Get Started
-    </button>
-
-    <button
-        class="mobile-menu-button"
-        onclick="toggleMobileMenu()"
-        aria-label="Open navigation"
-    >
-        ☰
-    </button>
-
-</header>
-
-
-<!-- =========================
-     MOBILE NAVIGATION
-========================= -->
-
-<div
-    id="mobileMenu"
-    class="mobile-menu"
->
-
-    <a href="#home" onclick="closeMobileMenu()">Home</a>
-
-    <a href="#explore" onclick="closeMobileMenu()">Explore</a>
-
-    <a href="#ucat" onclick="closeMobileMenu()">UCAT</a>
-
-    <a href="#universities" onclick="closeMobileMenu()">Universities</a>
-
-    <a href="#roadmap" onclick="closeMobileMenu()">Roadmap</a>
-
-    <button onclick="openJourney(); closeMobileMenu()">
-        Get Started
-    </button>
-
-</div>
-
-
-<main>
-
-
-<!-- =========================
-     HERO
-========================= -->
-
-<section
-    id="home"
-    class="hero"
->
-
-    <div class="hero-content">
-
-        <div class="hero-badge">
-            🩺 Built for aspiring doctors
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>
+        <div class="topbar-search">
+          <label class="search-label" for="global-search">Search</label>
+          <input id="global-search" type="search" placeholder="Search MedPath…" autocomplete="off">
         </div>
-
-        <h1>
-            Your path to
-            <span>medicine.</span>
-        </h1>
-
-        <p class="hero-description">
-            Whether you're just exploring medicine, preparing for
-            the UCAT, applying to medical school or considering
-            graduate entry — MedPath helps you figure out what's next.
-        </p>
-
-        <div class="hero-buttons">
-
-            <button
-                class="primary-button"
-                onclick="openJourney()"
-            >
-                Start my journey →
-            </button>
-
-            <a
-                href="#explore"
-                class="secondary-button"
-            >
-                Explore MedPath
-            </a>
-
+        <div class="top-actions">
+          <button class="icon-button" id="notification-button" aria-label="Notifications">♧</button>
+          <button class="profile-chip" id="profile-chip" title="Open profile">
+            <span class="avatar" id="top-avatar">M</span><span id="top-name">MedPath</span>
+          </button>
         </div>
+      </header>
 
-        <div class="hero-statistics">
-
+      <div class="content">
+        <section id="dashboard" class="route-section">
+          <div class="hero-row">
             <div>
-                <strong>📚</strong>
-                <span>Resources</span>
+              <div class="eyebrow">YOUR MEDPATH</div>
+              <h1 id="welcome-title">Good afternoon.</h1>
+              <p class="lead">Here’s your medicine journey at a glance.</p>
             </div>
+            <button class="button primary" data-open-modal="experience-modal">+ Log experience</button>
+          </div>
 
-            <div>
-                <strong>🧠</strong>
-                <span>UCAT</span>
+          <div class="dashboard-grid">
+            <article class="card progress-card">
+              <div class="card-header"><div><span class="label">OVERALL PROGRESS</span><strong id="overall-progress">0%</strong></div><span class="progress-ring" id="progress-ring">0%</span></div>
+              <div class="progress-track"><span id="overall-bar"></span></div>
+              <p class="muted" id="progress-message">Start with one small step.</p>
+            </article>
+            <article class="card stat-card"><span class="stat-icon">▦</span><span class="label">RESOURCES COMPLETED</span><strong id="dash-completed">0</strong><span class="muted">of <span id="dash-resource-total">50+</span></span></article>
+            <article class="card stat-card"><span class="stat-icon">✚</span><span class="label">EXPERIENCES LOGGED</span><strong id="dash-experiences">0</strong><span class="muted">including reflections</span></article>
+            <article class="card stat-card"><span class="stat-icon">◈</span><span class="label">UCAT QUESTIONS</span><strong id="dash-ucat">0</strong><span class="muted">practised</span></article>
+            <article class="card stat-card"><span class="stat-icon">◇</span><span class="label">ROADMAP</span><strong id="dash-roadmap">0%</strong><span class="muted">complete</span></article>
+            <article class="card stat-card"><span class="stat-icon">☆</span><span class="label">SAVED RESOURCES</span><strong id="dash-saved">0</strong><span class="muted">bookmarked</span></article>
+          </div>
+
+          <div class="two-col">
+            <article class="card">
+              <div class="card-header"><div><span class="label">NEXT STEPS</span><h2>Keep moving forward</h2></div></div>
+              <div id="next-steps" class="task-list"></div>
+            </article>
+            <article class="card">
+              <div class="card-header"><div><span class="label">PERSONALISED FOR YOU</span><h2 id="personalised-title">Recommended</h2></div><a class="text-link" href="#resources">View all →</a></div>
+              <div id="dashboard-recommendations" class="mini-resource-list"></div>
+            </article>
+          </div>
+
+          <div class="section-heading"><div><span class="label">RECENT ACTIVITY</span><h2>Your journey</h2></div></div>
+          <div id="recent-activity" class="activity-list card"></div>
+        </section>
+
+        <section id="resources" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">RESOURCE LIBRARY</div><h1>Learn something useful.</h1><p class="lead">Browse a substantial collection of reputable learning, admissions and career resources.</p></div></div>
+          <div class="card filters-card">
+            <div class="resource-search"><label for="resource-search">Search resources</label><input id="resource-search" type="search" placeholder="Try “anatomy”, “UCAT”, “free courses”…"></div>
+            <div class="filter-row">
+              <label>Category<select id="filter-category"></select></label>
+              <label>Type<select id="filter-type"></select></label>
+              <label>Access<select id="filter-access"></select></label>
+              <label>Difficulty<select id="filter-difficulty"></select></label>
+              <label>Stage<select id="filter-stage"></select></label>
+              <label>Time<select id="filter-time"></select></label>
             </div>
-
-            <div>
-                <strong>🏫</strong>
-                <span>Universities</span>
-            </div>
-
-            <div>
-                <strong>🎤</strong>
-                <span>Interviews</span>
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- DASHBOARD PREVIEW -->
-
-    <div class="dashboard">
-
-        <div class="dashboard-header">
-
-            <div>
-                <small>YOUR MEDPATH</small>
-
-                <h3>
-                    Your Journey
-                </h3>
-            </div>
-
-            <div class="profile-circle">
-                👤
-            </div>
-
-        </div>
-
-
-        <div class="journey-status">
-
-            <div class="status-heading">
-
-                <span>
-                    Journey progress
-                </span>
-
-                <strong>
-                    35%
-                </strong>
-
-            </div>
-
-            <div class="progress-background">
-
-                <div class="progress-bar"></div>
-
-            </div>
-
-        </div>
-
-
-        <div class="dashboard-items">
-
-            <div class="dashboard-item">
-
-                <div class="dashboard-icon blue">
-                    🧠
-                </div>
-
-                <div>
-
-                    <strong>
-                        UCAT
-                    </strong>
-
-                    <small>
-                        Preparation
-                    </small>
-
-                </div>
-
-                <span class="arrow">
-                    →
-                </span>
-
-            </div>
-
-
-            <div class="dashboard-item">
-
-                <div class="dashboard-icon purple">
-                    🏫
-                </div>
-
-                <div>
-
-                    <strong>
-                        Universities
-                    </strong>
-
-                    <small>
-                        Explore medical schools
-                    </small>
-
-                </div>
-
-                <span class="arrow">
-                    →
-                </span>
-
-            </div>
-
-
-            <div class="dashboard-item">
-
-                <div class="dashboard-icon green">
-                    📚
-                </div>
-
-                <div>
-
-                    <strong>
-                        Resources
-                    </strong>
-
-                    <small>
-                        Recommended for you
-                    </small>
-
-                </div>
-
-                <span class="arrow">
-                    →
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="next-step">
-
-            <span>
-                ✨
-            </span>
-
-            <div>
-
-                <small>
-                    RECOMMENDED NEXT STEP
-                </small>
-
-                <strong>
-                    Tell us where you are
-                </strong>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================
-     PERSONALISATION
-========================= -->
-
-<section
-    id="explore"
-    class="section"
->
-
-    <div class="section-heading">
-
-        <p class="eyebrow">
-            MADE FOR YOU
-        </p>
-
-        <h2>
-            Where are you on your
-            <span>medicine journey?</span>
-        </h2>
-
-        <p>
-            MedPath isn't tied to one age or education level.
-            Choose the stage that best describes you and we'll
-            recommend the most useful resources.
-        </p>
-
-    </div>
-
-
-    <div class="journey-grid">
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('exploring')"
-        >
-
-            <span class="journey-emoji">
-                🌱
-            </span>
-
-            <h3>
-                I'm exploring medicine
-            </h3>
-
-            <p>
-                I'm considering medicine and want to understand
-                what the career and application process involve.
-            </p>
-
-            <span class="card-arrow">
-                Explore →
-            </span>
-
-        </button>
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('student')"
-        >
-
-            <span class="journey-emoji">
-                📚
-            </span>
-
-            <h3>
-                I'm currently studying
-            </h3>
-
-            <p>
-                I'm studying at school, college or sixth form
-                and I'm thinking about medicine.
-            </p>
-
-            <span class="card-arrow">
-                Continue →
-            </span>
-
-        </button>
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('university')"
-        >
-
-            <span class="journey-emoji">
-                🎓
-            </span>
-
-            <h3>
-                I'm at university
-            </h3>
-
-            <p>
-                I'm considering medicine alongside or after
-                completing my current degree.
-            </p>
-
-            <span class="card-arrow">
-                Explore →
-            </span>
-
-        </button>
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('graduate')"
-        >
-
-            <span class="journey-emoji">
-                🔄
-            </span>
-
-            <h3>
-                I'm a graduate
-            </h3>
-
-            <p>
-                I'm considering graduate-entry medicine or
-                applying after completing my degree.
-            </p>
-
-            <span class="card-arrow">
-                Explore →
-            </span>
-
-        </button>
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('applying')"
-        >
-
-            <span class="journey-emoji">
-                📝
-            </span>
-
-            <h3>
-                I'm applying this year
-            </h3>
-
-            <p>
-                I'm actively preparing my medical-school
-                application and need focused guidance.
-            </p>
-
-            <span class="card-arrow">
-                Get started →
-            </span>
-
-        </button>
-
-
-        <button
-            class="journey-card"
-            onclick="selectJourney('international')"
-        >
-
-            <span class="journey-emoji">
-                🌍
-            </span>
-
-            <h3>
-                I'm an international applicant
-            </h3>
-
-            <p>
-                I'm interested in studying medicine in the
-                UK and want to understand my options.
-            </p>
-
-            <span class="card-arrow">
-                Explore →
-            </span>
-
-        </button>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================
-     FEATURES
-========================= -->
-
-<section class="section feature-section">
-
-    <div class="section-heading">
-
-        <p class="eyebrow">
-            EVERYTHING IN ONE PLACE
-        </p>
-
-        <h2>
-            Your medicine
-            <span>toolkit.</span>
-        </h2>
-
-        <p>
-            From exploring medicine to preparing for interviews,
-            MedPath brings the journey together.
-        </p>
-
-    </div>
-
-
-    <div class="feature-grid">
-
-
-        <article
-            class="feature-card blue-card"
-            onclick="showFeature('resources')"
-        >
-
-            <div class="feature-icon">
-                📚
-            </div>
-
-            <h3>
-                Resource Hub
-            </h3>
-
-            <p>
-                Find useful resources for medicine, science,
-                applications, interviews and more.
-            </p>
-
-            <span>
-                Explore resources →
-            </span>
-
-        </article>
-
-
-        <article
-            id="ucat"
-            class="feature-card purple-card"
-            onclick="showFeature('ucat')"
-        >
-
-            <div class="feature-icon">
-                🧠
-            </div>
-
-            <h3>
-                UCAT Preparation
-            </h3>
-
-            <p>
-                Build your UCAT skills with practice,
-                strategies and performance tracking.
-            </p>
-
-            <span>
-                Prepare for UCAT →
-            </span>
-
-        </article>
-
-
-        <article
-            id="universities"
-            class="feature-card green-card"
-            onclick="showFeature('universities')"
-        >
-
-            <div class="feature-icon">
-                🏫
-            </div>
-
-            <h3>
-                Medical Schools
-            </h3>
-
-            <p>
-                Research medical schools and organise your
-                university shortlist.
-            </p>
-
-            <span>
-                Find universities →
-            </span>
-
-        </article>
-
-
-        <article
-            class="feature-card orange-card"
-            onclick="showFeature('experience')"
-        >
-
-            <div class="feature-icon">
-                💼
-            </div>
-
-            <h3>
-                Experience
-            </h3>
-
-            <p>
-                Learn about healthcare experience, volunteering
-                and reflecting on what you learn.
-            </p>
-
-            <span>
-                Explore experience →
-            </span>
-
-        </article>
-
-
-        <article
-            class="feature-card pink-card"
-            onclick="showFeature('interviews')"
-        >
-
-            <div class="feature-icon">
-                🎤
-            </div>
-
-            <h3>
-                Interview Preparation
-            </h3>
-
-            <p>
-                Practise MMI-style stations, communication,
-                ethics and healthcare scenarios.
-            </p>
-
-            <span>
-                Practise interviews →
-            </span>
-
-        </article>
-
-
-        <article
-            class="feature-card navy-card"
-            onclick="showFeature('roadmap')"
-        >
-
-            <div class="feature-icon">
-                🗺️
-            </div>
-
-            <h3>
-                Personal Roadmap
-            </h3>
-
-            <p>
-                Get a clearer picture of what you could focus
-                on next based on your goals.
-            </p>
-
-            <span>
-                View roadmap →
-            </span>
-
-        </article>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================
-     ROADMAP
-========================= -->
-
-<section
-    id="roadmap"
-    class="roadmap-section"
->
-
-    <div class="roadmap-container">
-
-
-        <div class="roadmap-text">
-
-            <p class="eyebrow">
-                YOUR NEXT STEP
-            </p>
-
-            <h2>
-                Medicine doesn't have
-                to feel <span>overwhelming.</span>
-            </h2>
-
-            <p>
-                There are lots of things to understand:
-                admissions tests, universities, experience,
-                applications and interviews.
-            </p>
-
-            <p>
-                MedPath breaks everything down into smaller,
-                manageable steps.
-            </p>
-
-            <button
-                class="primary-button"
-                onclick="openJourney()"
-            >
-                Build my roadmap →
-            </button>
-
-        </div>
-
-
-        <div class="timeline">
-
-
-            <div class="timeline-step active">
-
-                <div class="timeline-number">
-                    1
-                </div>
-
-                <div>
-                    <small>
-                        DISCOVER
-                    </small>
-
-                    <h3>
-                        Explore medicine
-                    </h3>
-
-                    <p>
-                        Understand the career and decide
-                        whether medicine interests you.
-                    </p>
-                </div>
-
-            </div>
-
-
-            <div class="timeline-connector"></div>
-
-
-            <div class="timeline-step">
-
-                <div class="timeline-number">
-                    2
-                </div>
-
-                <div>
-                    <small>
-                        PREPARE
-                    </small>
-
-                    <h3>
-                        Build your profile
-                    </h3>
-
-                    <p>
-                        Develop your academic knowledge,
-                        experience and understanding.
-                    </p>
-                </div>
-
-            </div>
-
-
-            <div class="timeline-connector"></div>
-
-
-            <div class="timeline-step">
-
-                <div class="timeline-number">
-                    3
-                </div>
-
-                <div>
-                    <small>
-                        APPLY
-                    </small>
-
-                    <h3>
-                        Choose your medical schools
-                    </h3>
-
-                    <p>
-                        Research universities and understand
-                        their selection processes.
-                    </p>
-                </div>
-
-            </div>
-
-
-            <div class="timeline-connector"></div>
-
-
-            <div class="timeline-step">
-
-                <div class="timeline-number">
-                    4
-                </div>
-
-                <div>
-                    <small>
-                        INTERVIEW
-                    </small>
-
-                    <h3>
-                        Prepare with confidence
-                    </h3>
-
-                    <p>
-                        Practise communicating clearly and
-                        reasoning through scenarios.
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================
-     FINAL CTA
-========================= -->
-
-<section
-    id="start"
-    class="final-cta"
->
-
-    <div class="cta-symbol">
-        🩺
-    </div>
-
-    <p class="eyebrow">
-        MEDPATH
-    </p>
-
-    <h2>
-        Wherever you are,
-        <br>
-        <span>start here.</span>
-    </h2>
-
-    <p>
-        Tell MedPath where you are on your journey
-        and discover what could come next.
-    </p>
-
-    <button
-        class="cta-button"
-        onclick="openJourney()"
-    >
-        Start my journey →
-    </button>
-
-</section>
-
-
-</main>
-
-
-
-<!-- =========================
-     FOOTER
-========================= -->
-
-<footer>
-
-    <div class="footer-logo">
-        🩺 MedPath
-    </div>
-
-    <p>
-        Your path to medicine, in one place.
-    </p>
-
-    <div class="footer-navigation">
-
-        <a href="#home">
-            Home
-        </a>
-
-        <a href="#explore">
-            Explore
-        </a>
-
-        <a href="#ucat">
-            UCAT
-        </a>
-
-        <a href="#universities">
-            Universities
-        </a>
-
-        <a href="#roadmap">
-            Roadmap
-        </a>
-
-    </div>
-
-    <p class="footer-disclaimer">
-        MedPath is an independent student project and is not
-        affiliated with UCAT, UCAS, the NHS or any university.
-    </p>
-
-    <p class="copyright">
-        © 2026 MedPath. All rights reserved.
-    </p>
-
-</footer>
-
-
-
-<!-- =========================
-     JOURNEY MODAL
-========================= -->
-
-<div
-    id="journeyModal"
-    class="modal"
->
-
-    <div class="modal-content">
-
-        <button
-            class="modal-close"
-            onclick="closeJourney()"
-        >
-            ×
-        </button>
-
-        <div id="journeyQuestion">
-
-            <div class="modal-icon">
-                🩺
-            </div>
-
-            <p class="eyebrow">
-                WELCOME TO MEDPATH
-            </p>
-
-            <h2>
-                Where are you
-                on your journey?
-            </h2>
-
-            <p>
-                Choose the option that best describes you.
-                You can change this later.
-            </p>
-
-            <div class="modal-options">
-
-                <button onclick="completeJourney('exploring')">
-                    🌱 I'm exploring medicine
-                </button>
-
-                <button onclick="completeJourney('studying')">
-                    📚 I'm currently studying
-                </button>
-
-                <button onclick="completeJourney('university')">
-                    🎓 I'm at university
-                </button>
-
-                <button onclick="completeJourney('graduate')">
-                    🔄 I'm a graduate
-                </button>
-
-                <button onclick="completeJourney('applying')">
-                    📝 I'm applying this year
-                </button>
-
-                <button onclick="completeJourney('international')">
-                    🌍 I'm an international applicant
-                </button>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="journeyResult"
-            class="journey-result hidden"
-        >
-
-            <div class="success-icon">
-                ✓
-            </div>
-
-            <p class="eyebrow">
-                YOUR JOURNEY
-            </p>
-
-            <h2 id="resultTitle">
-                Welcome to MedPath
-            </h2>
-
-            <p id="resultText">
-                Your personalised journey will appear here.
-            </p>
-
-            <button
-                class="primary-button"
-                onclick="closeJourney()"
-            >
-                Explore MedPath →
-            </button>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<script src="script.js"></script>
-
+          </div>
+          <div class="library-meta"><span id="resource-count">0 resources</span><button class="button ghost small" id="clear-filters">Clear filters</button></div>
+          <div id="resource-grid" class="resource-grid"></div>
+        </section>
+
+        <section id="experience" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">EXPERIENCE</div><h1>Build experience with purpose.</h1><p class="lead">Track healthcare, volunteering, shadowing and community experiences. Requirements vary by provider, age and location.</p></div><button class="button primary" data-open-modal="experience-modal">+ Log experience</button></div>
+          <div class="notice"><strong>Important:</strong> MedPath does not guarantee that an opportunity is available to you. Check age requirements, availability and the provider’s official website.</div>
+          <div class="experience-types" id="experience-types"></div>
+          <div class="section-heading compact"><div><span class="label">MY LOG</span><h2>Experiences you’ve recorded</h2></div></div>
+          <div id="experience-list" class="stack"></div>
+        </section>
+
+        <section id="ucat" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">UCAT</div><h1>Prepare with a clear picture.</h1><p class="lead">Track your own practice. Official and third-party resources are clearly separated.</p></div></div>
+          <div class="ucat-grid">
+            <article class="card ucat-main"><span class="label">PRACTICE TRACKER</span><h2>Your current practice</h2>
+              <div class="ucat-stats"><div><strong id="ucat-questions">0</strong><span>Questions</span></div><div><strong id="ucat-correct">0</strong><span>Correct</span></div><div><strong id="ucat-accuracy">0%</strong><span>Accuracy</span></div><div><strong id="ucat-sessions">0</strong><span>Sessions</span></div></div>
+              <div class="form-grid compact-form"><label>Questions completed<input id="ucat-q" type="number" min="0" placeholder="10"></label><label>Correct answers<input id="ucat-c" type="number" min="0" placeholder="7"></label><label>Minutes spent<input id="ucat-minutes" type="number" min="0" placeholder="20"></label><label>Weak area<select id="ucat-weak"><option>None yet</option><option>Verbal Reasoning</option><option>Decision Making</option><option>Quantitative Reasoning</option><option>Abstract Reasoning</option><option>Situational Judgement</option></select></label><button class="button primary span-2" id="record-ucat">Record practice session</button></div>
+            </article>
+            <article class="card"><span class="label">OFFICIAL STARTING POINT</span><h2>Know what is official.</h2><p class="muted">Use the official UCAT site for current test information, registration details and official preparation materials.</p><a class="button secondary" href="https://www.ucat.ac.uk/" target="_blank" rel="noopener">Open official UCAT website ↗</a><div class="divider"></div><div class="pill-row"><span class="pill verified">Official</span><span class="pill">Current information</span></div></article>
+          </div>
+          <div class="section-heading compact"><div><span class="label">PREPARATION RESOURCES</span><h2>Official vs third-party</h2></div></div>
+          <div id="ucat-resources" class="resource-grid"></div>
+        </section>
+
+        <section id="roadmap" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">ROADMAP</div><h1>Your route, one stage at a time.</h1><p class="lead">A flexible checklist rather than a promise of a single route into medicine.</p></div></div>
+          <div id="roadmap-container" class="roadmap"></div>
+        </section>
+
+        <section id="universities" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">MEDICAL SCHOOL EXPLORER</div><h1>Research before you shortlist.</h1><p class="lead">The prototype uses sample/static data. Always verify current requirements on each university’s official website.</p></div></div>
+          <div class="notice"><strong>Prototype data:</strong> university information below is illustrative. It is not a live admissions database.</div>
+          <div class="university-controls card"><input id="university-search" type="search" placeholder="Search university or course…"><select id="university-status"><option value="">All statuses</option><option>Interested</option><option>Researching</option><option>Shortlisted</option><option>Applied</option></select></div>
+          <div id="university-grid" class="university-grid"></div>
+        </section>
+
+        <section id="interviews" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">INTERVIEW HUB</div><h1>Practise thinking, not scripts.</h1><p class="lead">Use prompts to practise explaining your reasoning, reflecting and communicating clearly.</p></div></div>
+          <div class="interview-grid" id="interview-grid"></div>
+        </section>
+
+        <section id="reflections" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">REFLECTION JOURNAL</div><h1>Turn experiences into learning.</h1><p class="lead">Keep your reflections private in this browser and revisit what you learned.</p></div><button class="button primary" data-open-modal="reflection-modal">+ Write reflection</button></div>
+          <div id="reflection-list" class="stack"></div>
+        </section>
+
+        <section id="progress" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">MY PROGRESS</div><h1>See how far you’ve come.</h1><p class="lead">Progress is based on activity in this prototype.</p></div></div>
+          <div id="progress-grid" class="progress-grid"></div>
+          <div class="section-heading compact"><div><span class="label">ACHIEVEMENTS</span><h2>Keep the momentum</h2></div></div>
+          <div id="achievement-grid" class="achievement-grid"></div>
+        </section>
+
+        <section id="saved" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">SAVED RESOURCES</div><h1>Things to revisit.</h1><p class="lead">Bookmark resources now and return when you need them.</p></div></div>
+          <div id="saved-grid" class="resource-grid"></div>
+        </section>
+
+        <section id="profile" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">PROFILE</div><h1>Your MedPath profile.</h1></div><button class="button secondary" id="edit-profile">Edit profile</button></div>
+          <div class="profile-layout">
+            <article class="card profile-hero"><div class="big-avatar" id="profile-avatar">M</div><h2 id="profile-name">MedPath</h2><span class="pill" id="profile-stage">Exploring medicine</span><p id="profile-goals" class="muted"></p></article>
+            <article class="card"><span class="label">JOURNEY SNAPSHOT</span><div class="profile-stats" id="profile-stats"></div></article>
+          </div>
+        </section>
+
+        <section id="settings" class="route-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">SETTINGS</div><h1>Make MedPath yours.</h1></div></div>
+          <div class="settings-list">
+            <div class="setting-row"><div><strong>Dark mode</strong><p class="muted">Use a darker interface.</p></div><label class="switch"><input id="dark-toggle" type="checkbox"><span></span></label></div>
+            <div class="setting-row"><div><strong>Notifications</strong><p class="muted">Show simulated in-app reminders.</p></div><label class="switch"><input id="notification-toggle" type="checkbox"><span></span></label></div>
+            <div class="setting-row"><div><strong>Export my data</strong><p class="muted">Download your local MedPath data as JSON.</p></div><button class="button secondary" id="export-data">Export JSON</button></div>
+            <div class="setting-row"><div><strong>Reset all MedPath data</strong><p class="muted">Deletes this prototype’s local data from this browser.</p></div><button class="button danger" id="reset-data">Reset data</button></div>
+          </div>
+          <div class="notice"><strong>Privacy:</strong> This prototype stores progress locally in your browser. It does not create a real online account and does not need your password, medical information or exact location.</div>
+        </section>
+
+        <section id="about" class="route-section hidden">
+          <div class="about-hero"><div class="eyebrow">ABOUT MEDPATH</div><h1>Your journey to medicine, organised.</h1><p class="lead">MedPath is an independent educational prototype for people exploring medicine, preparing for admissions and organising their learning.</p></div>
+          <div class="two-col">
+            <article class="card"><span class="label">WHAT IT DOES</span><h2>One place for the journey</h2><p>MedPath brings together resource discovery, experience tracking, reflections, roadmap tasks, UCAT practice tracking, university research and interview practice.</p></article>
+            <article class="card"><span class="label">WHAT IT DOESN’T DO</span><h2>No guarantees</h2><p>MedPath does not guarantee admission, work experience, interview success or access to any third-party resource. Always check official providers for current information.</p></article>
+          </div>
+          <div class="notice">MedPath organises educational resources but does not own or guarantee third-party content. Always check the provider's official website for current information.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
-```
+'''
+
+css = r''':root{
+  --teal:#0F9F91;--navy:#102A43;--bg:#F7FAFC;--card:#fff;--blue:#2563EB;--purple:#7C3AED;--orange:#EA8B2B;
+  --text:#18324a;--muted:#66788a;--border:#dce5ec;--soft:#eef6f5;--danger:#c53030;--shadow:0 12px 32px rgba(16,42,67,.07);
+  --radius:18px;--sidebar:252px
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}button,a{touch-action:manipulation}a{color:inherit;text-decoration:none}
+.hidden{display:none!important}.app-shell{min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar);background:#fff;border-right:1px solid var(--border);padding:22px 14px;display:flex;flex-direction:column;z-index:30}
+.brand{display:flex;gap:11px;align-items:center;padding:8px 12px 24px}.brand-mark,.avatar,.big-avatar{display:grid;place-items:center;background:var(--teal);color:#fff;font-weight:800}.brand-mark{width:38px;height:38px;border-radius:12px}.brand strong{display:block;font-size:18px;color:var(--navy)}.brand small{display:block;color:var(--muted);font-size:10px}
+.nav,.sidebar-bottom{display:grid;gap:4px}.sidebar-bottom{margin-top:auto}.nav a,.sidebar-bottom a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;color:#557086;font-weight:600}.nav a:hover,.sidebar-bottom a:hover,.nav a.active,.sidebar-bottom a.active{background:var(--soft);color:var(--teal)}
+.main{margin-left:var(--sidebar);min-height:100vh}.topbar{height:72px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 30px;position:sticky;top:0;z-index:20}.topbar-search{width:min(520px,50%)}.search-label{position:absolute;width:1px;height:1px;overflow:hidden}.topbar-search input,.resource-search input,.university-controls input{width:100%;border:1px solid var(--border);background:var(--bg);border-radius:12px;padding:10px 13px;outline:none}.topbar-search input:focus,input:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,159,145,.12)}.top-actions{display:flex;align-items:center;gap:10px}.icon-button{border:0;background:transparent;border-radius:10px;padding:9px;cursor:pointer;color:#5b7183;font-size:18px}.icon-button:hover{background:#eef3f6}.profile-chip{border:0;background:transparent;display:flex;gap:8px;align-items:center;font-weight:700;color:var(--navy);cursor:pointer}.avatar{width:34px;height:34px;border-radius:50%;font-size:13px}.mobile-menu{display:none}
+.content{max-width:1480px;margin:0 auto;padding:38px 34px 70px}.route-section{animation:fade .2s ease}@keyframes fade{from{opacity:.2;transform:translateY(4px)}to{opacity:1;transform:none}}
+.hero-row,.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px}.section-heading.compact{margin-top:34px;margin-bottom:16px}.section-heading h1,.hero-row h1,.about-hero h1{font-size:clamp(30px,4vw,46px);line-height:1.08;margin:4px 0 8px;color:var(--navy);letter-spacing:-1.4px}.section-heading h2,.hero-row h2,.card h2{margin:3px 0 0;color:var(--navy);font-size:21px}.lead{color:var(--muted);font-size:16px;max-width:760px;margin:0}.eyebrow,.label{font-size:11px;letter-spacing:.12em;font-weight:800;color:var(--teal)}.label{display:block;color:#718596}.muted{color:var(--muted)}.text-link{color:var(--teal);font-weight:700}.button{border:1px solid transparent;border-radius:11px;padding:10px 15px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}.button.primary{background:var(--teal);color:#fff}.button.primary:hover{filter:brightness(.94)}.button.secondary{background:#fff;color:var(--navy);border-color:var(--border)}.button.ghost{background:transparent;color:var(--teal);border-color:var(--border)}.button.danger{background:#fff0f0;color:var(--danger);border-color:#f3c5c5}.button.small{padding:7px 10px;font-size:12px}.button.full{width:100%}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}.card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.dashboard-grid{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:14px;margin-bottom:22px}.progress-card{grid-row:span 2}.progress-card .card-header strong{display:block;font-size:34px;color:var(--navy);margin-top:2px}.progress-ring{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--teal);font-weight:900}.progress-track{height:9px;background:#e8eef2;border-radius:99px;overflow:hidden;margin:20px 0 10px}.progress-track span{display:block;height:100%;width:0;background:var(--teal);border-radius:99px;transition:width .35s}.stat-card{min-height:142px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}.stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--soft);color:var(--teal);font-weight:900;margin-bottom:8px}.stat-card strong{font-size:28px;color:var(--navy)}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}.task-list,.mini-resource-list{display:grid;gap:10px}.task-item{display:flex;align-items:center;gap:11px;padding:12px;border:1px solid var(--border);border-radius:12px}.task-item.done{opacity:.55;text-decoration:line-through}.task-item input{accent-color:var(--teal);width:18px;height:18px}.mini-resource{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}.mini-resource:last-child{border-bottom:0}.mini-icon{width:38px;height:38px;border-radius:10px;background:#eef4ff;color:var(--blue);display:grid;place-items:center;flex:0 0 auto}.activity-list{min-height:100px}.activity-item{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}.activity-item:last-child{border-bottom:0}
+.filters-card{margin-bottom:13px}.resource-search{margin-bottom:14px}.resource-search label{display:block;font-weight:800;margin-bottom:7px}.filter-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}.filter-row label,.form-grid label,.university-controls label{display:grid;gap:5px;font-size:12px;font-weight:800;color:#5f7486}.filter-row select,.form-grid input,.form-grid select,.form-grid textarea,.university-controls select{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px;background:#fff;color:var(--text);outline:none}.library-meta{display:flex;justify-content:space-between;align-items:center;margin:14px 0;color:var(--muted);font-size:13px}.resource-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}.resource-card{display:flex;flex-direction:column;min-height:285px}.resource-card .resource-top{display:flex;gap:12px;align-items:flex-start}.resource-icon{width:43px;height:43px;border-radius:12px;background:#edf8f6;color:var(--teal);display:grid;place-items:center;font-weight:900;flex:0 0 auto}.resource-card h3{margin:0;color:var(--navy);font-size:17px}.resource-card .desc{color:var(--muted);font-size:13px;margin:10px 0 15px}.pill-row{display:flex;flex-wrap:wrap;gap:6px}.pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#eef2f5;color:#536b7d;font-size:11px;font-weight:800}.pill.verified{background:#e8f7f2;color:#17715f}.resource-meta{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:auto;padding-top:13px;font-size:11px;color:var(--muted)}.resource-actions{display:flex;gap:7px;margin-top:14px}.resource-actions .button{flex:1}.resource-actions .icon-save{flex:0 0 42px}.notice{background:#fffaf0;border:1px solid #f1dfb2;border-radius:14px;padding:13px 15px;color:#725d2c;margin-bottom:18px}.experience-types{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.experience-type{background:#fff;border:1px solid var(--border);border-radius:15px;padding:18px}.experience-type strong{display:block;color:var(--navy);margin-bottom:4px}.stack{display:grid;gap:12px}.log-card{position:relative}.log-card h3{margin:0;color:var(--navy)}.log-card .delete{position:absolute;right:15px;top:15px}
+.ucat-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}.ucat-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.ucat-stats div{background:var(--bg);border-radius:13px;padding:13px}.ucat-stats strong{display:block;font-size:25px;color:var(--navy)}.ucat-stats span{font-size:11px;color:var(--muted)}.compact-form{grid-template-columns:1fr 1fr}
+.roadmap{display:grid;gap:14px}.roadmap-stage{display:grid;grid-template-columns:64px 1fr auto;gap:16px;align-items:start;background:#fff;border:1px solid var(--border);border-radius:17px;padding:20px}.stage-number{width:46px;height:46px;border-radius:50%;background:var(--soft);color:var(--teal);display:grid;place-items:center;font-weight:900}.roadmap-stage.complete{border-color:#b9e3da}.roadmap-stage.complete .stage-number{background:var(--teal);color:#fff}.roadmap-stage h3{margin:0;color:var(--navy)}.roadmap-tasks{display:grid;gap:7px;margin-top:12px}.roadmap-task{display:flex;gap:9px;align-items:flex-start;color:#506879;font-size:13px}.roadmap-task input{accent-color:var(--teal);margin-top:3px}.stage-progress{font-size:12px;color:var(--muted);white-space:nowrap}
+.university-controls{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:15px}.university-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.university-card h3{margin:4px 0;color:var(--navy)}.university-details{display:grid;gap:7px;margin:13px 0;font-size:12px}.university-details span{color:var(--muted)}.status-select{width:100%;border:1px solid var(--border);padding:8px;border-radius:10px}
+.interview-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px}.interview-card{background:#fff;border:1px solid var(--border);border-radius:17px;padding:20px}.interview-card h3{color:var(--navy);margin:0 0 8px}.question{background:var(--bg);border-radius:12px;padding:14px;margin:14px 0;font-weight:700}.interview-card.practised{border-color:#b9e3da}
+.progress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.metric-card strong{font-size:34px;color:var(--navy);display:block}.achievement-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.achievement{padding:18px;background:#fff;border:1px solid var(--border);border-radius:15px;opacity:.45}.achievement.unlocked{opacity:1;border-color:#b9e3da;background:#f7fffd}.achievement-icon{font-size:25px}.achievement strong{display:block;color:var(--navy);margin-top:8px}.profile-layout{display:grid;grid-template-columns:1fr 2fr;gap:18px}.profile-hero{text-align:center}.big-avatar{width:78px;height:78px;border-radius:24px;margin:0 auto 15px;font-size:28px}.profile-hero h2{font-size:25px}.profile-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.profile-stat{padding:14px;background:var(--bg);border-radius:13px}.profile-stat strong{display:block;font-size:25px;color:var(--navy)}.profile-stat span{font-size:11px;color:var(--muted)}
+.settings-list{display:grid;gap:0;background:#fff;border:1px solid var(--border);border-radius:17px;overflow:hidden;margin-bottom:18px}.setting-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:19px 21px;border-bottom:1px solid var(--border)}.setting-row:last-child{border-bottom:0}.setting-row p{margin:2px 0 0}.switch input{display:none}.switch span{display:block;width:47px;height:27px;background:#cbd6de;border-radius:99px;position:relative;cursor:pointer}.switch span:after{content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}.switch input:checked+span{background:var(--teal)}.switch input:checked+span:after{transform:translateX(20px)}
+.about-hero{padding:32px;background:linear-gradient(135deg,#e9f8f5,#f4f7ff);border-radius:22px;margin-bottom:20px}.about-hero h1{max-width:780px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.form-grid fieldset{border:0;padding:0;margin:0}.form-grid .span-2{grid-column:span 2}.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.check-grid label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);padding:10px;border-radius:10px;font-size:12px}.check-grid input{accent-color:var(--teal)}.modal-backdrop{position:fixed;inset:0;background:rgba(16,42,67,.48);z-index:80;display:grid;place-items:center;padding:18px}.modal{position:relative;background:#fff;border-radius:20px;padding:27px;max-width:700px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.22)}.onboarding-modal{max-width:560px}.modal-close{position:absolute;right:12px;top:10px;font-size:25px}.modal h2{margin:0 0 7px;color:var(--navy)}
+.toast-region{position:fixed;right:18px;bottom:18px;z-index:100;display:grid;gap:8px}.toast{background:#102A43;color:#fff;border-radius:12px;padding:11px 14px;box-shadow:0 12px 28px rgba(0,0,0,.18);animation:toast .25s ease}.toast.success{background:#167463}@keyframes toast{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+body.dark{--bg:#0c1722;--card:#12212f;--text:#dce8f0;--muted:#9cb0bf;--border:#263b4b;--navy:#edf6fb;--soft:#17343a;--shadow:0 12px 32px rgba(0,0,0,.2)}body.dark .sidebar,body.dark .topbar,body.dark .modal,body.dark .settings-list,body.dark .roadmap-stage,body.dark .university-card,body.dark .interview-card,body.dark .achievement,body.dark .resource-card,.dark .card,.dark .experience-type{background:var(--card)}body.dark .topbar{background:rgba(18,33,47,.92)}body.dark input,body.dark select,body.dark textarea{background:#0f1c28;color:var(--text);border-color:var(--border)}body.dark .button.secondary{background:var(--card);color:var(--text)}body.dark .about-hero{background:#132b3c}body.dark .nav a:hover,body.dark .nav a.active,body.dark .sidebar-bottom a:hover,body.dark .sidebar-bottom a.active{background:#17343a}
+@media(max-width:1200px){.dashboard-grid{grid-template-columns:2fr repeat(2,1fr)}.resource-grid,.university-grid{grid-template-columns:repeat(2,1fr)}.experience-types{grid-template-columns:repeat(2,1fr)}.filter-row{grid-template-columns:repeat(3,1fr)}.progress-grid,.achievement-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){:root{--sidebar:0px}.sidebar{transform:translateX(-100%);width:270px;transition:.2s;box-shadow:20px 0 40px rgba(0,0,0,.15)}.sidebar.open{transform:none}.main{margin-left:0}.mobile-menu{display:block}.topbar{padding:0 16px}.topbar-search{width:55%}.content{padding:27px 18px 55px}.dashboard-grid,.two-col,.ucat-grid,.profile-layout{grid-template-columns:1fr}.progress-card{grid-row:auto}.interview-grid{grid-template-columns:1fr}.university-grid,.resource-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.top-actions #notification-button{display:none}.top-actions #top-name{display:none}.topbar-search{width:100%;max-width:none}.hero-row,.section-heading{align-items:flex-start;flex-direction:column}.section-heading .button,.hero-row .button{width:100%}.filter-row{grid-template-columns:1fr 1fr}.experience-types{grid-template-columns:1fr}.ucat-stats{grid-template-columns:1fr 1fr}.roadmap-stage{grid-template-columns:48px 1fr}.stage-progress{grid-column:2}.university-controls{grid-template-columns:1fr}.progress-grid,.achievement-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.form-grid .span-2{grid-column:auto}.check-grid{grid-template-columns:1fr}.modal{padding:22px 17px}.content{padding-left:13px;padding-right:13px}}
+'''
+
+js = r'''const STORAGE_KEY = "medpath_v1";
+
+const STAGES = [
+  "Exploring medicine","Secondary school","Sixth form / college","University","Gap year",
+  "Graduate applicant","International applicant","Career changer","Medical student","Other"
+];
+const GOALS = [
+  "Learn more about medicine","Find work experience","Volunteer","Prepare for UCAT",
+  "Research universities","Prepare for interviews","Build my application","Improve scientific knowledge"
+];
+const EXPERIENCE_TYPES = [
+  "Hospital","GP","Care home","Pharmacy","Dentistry","Research","Laboratory","Virtual experience",
+  "Healthcare volunteering","Community volunteering","Charity work","Shadowing"
+];
+
+const resources = [
+  ["OpenLearn","Learning","Free courses","The Open University","Free","Beginner","All stages","1–10 hours","University-level courses covering science, health, psychology and many other subjects.","https://www.open.edu/openlearn/"],
+  ["NHS Health Careers","Medical careers","Career guide","NHS","Free","Beginner","All stages","30–60 mins","Explore healthcare careers and routes into the NHS.","https://www.healthcareers.nhs.uk/"],
+  ["GMC — Becoming a doctor","Medical careers","Guidance","General Medical Council","Free","Beginner","All stages","30–60 mins","Information about becoming a doctor and the professional framework.","https://www.gmc-uk.org/education/becoming-a-doctor"],
+  ["UCAS Medicine","University applications","Admissions guide","UCAS","Free","Beginner","Sixth form / college","30–60 mins","Admissions information and application guidance for medicine.","https://www.ucas.com/"],
+  ["Medical Schools Council","University applications","Information hub","Medical Schools Council","Free","Beginner","All stages","30–60 mins","Independent information about UK medical schools and admissions.","https://www.medschools.ac.uk/"],
+  ["UCAT Official","UCAT","Official website","UCAT","Free","Beginner","Sixth form / college","30–60 mins","Official UCAT information, test details and preparation materials.","https://www.ucat.ac.uk/"],
+  ["OpenStax Anatomy & Physiology","Anatomy","Open textbook","OpenStax","Free","Intermediate","Sixth form / college","10+ hours","Open-access anatomy and physiology textbook.","https://openstax.org/details/books/anatomy-and-physiology-2e"],
+  ["OpenStax Biology 2e","Biology","Open textbook","OpenStax","Free","Intermediate","Secondary school","10+ hours","Open biology textbook with broad foundational coverage.","https://openstax.org/details/books/biology-2e"],
+  ["Khan Academy Biology","Biology","Video course","Khan Academy","Free","Beginner","Secondary school","1–10 hours","Foundational biology lessons and practice.","https://www.khanacademy.org/science/biology"],
+  ["Khan Academy Organic Chemistry","Chemistry","Video course","Khan Academy","Free","Intermediate","Sixth form / college","1–10 hours","Organic chemistry concepts and practice.","https://www.khanacademy.org/science/organic-chemistry"],
+  ["Wellcome Collection","Healthcare","Museum / articles","Wellcome","Free","Beginner","All stages","30–60 mins","Medical history, health, society and culture through collections and stories.","https://wellcomecollection.org/"],
+  ["PubMed","Research","Research database","U.S. National Library of Medicine","Free","Advanced","University","10+ hours","Search biomedical and life-sciences literature.","https://pubmed.ncbi.nlm.nih.gov/"],
+  ["Cochrane","Research","Evidence reviews","Cochrane","Mixed","Advanced","University","30–60 mins","Evidence-based healthcare reviews and summaries.","https://www.cochrane.org/"],
+  ["WHO — Health topics","Global health","Information hub","World Health Organization","Free","Beginner","All stages","30–60 mins","Global health topics and public-health information.","https://www.who.int/health-topics"],
+  ["TED — Health","Healthcare","Talks","TED","Free","Beginner","All stages","30–60 mins","Talks exploring health, science and society.","https://www.ted.com/topics/health"],
+  ["NHS — Conditions","Healthcare","Reference","NHS","Free","Beginner","All stages","30–60 mins","Plain-language overview of conditions, symptoms and treatments.","https://www.nhs.uk/conditions/"],
+  ["NHS — Live Well","Healthcare","Health education","NHS","Free","Beginner","All stages","30–60 mins","Evidence-informed health and wellbeing information.","https://www.nhs.uk/live-well/"],
+  ["NHS — Vaccinations","Healthcare","Public health","NHS","Free","Beginner","All stages","30–60 mins","Learn how vaccination programmes work in the UK.","https://www.nhs.uk/vaccinations/"],
+  ["GMC — Good medical practice","Medical ethics","Professional guidance","General Medical Council","Free","Advanced","University","30–60 mins","Professional standards for medical practice.","https://www.gmc-uk.org/professional-standards/good-medical-practice"],
+  ["GMC — Consent","Medical ethics","Guidance","General Medical Council","Free","Advanced","University","30–60 mins","Guidance on decision making and consent.","https://www.gmc-uk.org/professional-standards/professional-standards-for-doctors/consent"],
+  ["GMC — Confidentiality","Medical ethics","Guidance","General Medical Council","Free","Advanced","University","30–60 mins","Professional guidance on confidentiality.","https://www.gmc-uk.org/ethical-guidance/ethical-guidance-for-doctors/confidentiality"],
+  ["NHS — Medical ethics","Medical ethics","Education","NHS","Free","Intermediate","All stages","30–60 mins","Starting points for thinking about ethics in healthcare.","https://www.nhs.uk/"],
+  ["Royal College of Physicians","Medical careers","Professional body","Royal College of Physicians","Free","Intermediate","University","30–60 mins","Professional information and career resources for physicians.","https://www.rcplondon.ac.uk/"],
+  ["Royal College of Surgeons of England","Medical careers","Professional body","RCS England","Free","Intermediate","University","30–60 mins","Surgical careers, education and professional information.","https://www.rcseng.ac.uk/"],
+  ["Royal College of General Practitioners","Medical careers","Professional body","RCGP","Free","Intermediate","All stages","30–60 mins","Information about general practice and the GP profession.","https://www.rcgp.org.uk/"],
+  ["British Medical Association","Medical careers","Professional body","BMA","Free","Intermediate","All stages","30–60 mins","Information about the medical profession, education and policy.","https://www.bma.org.uk/"],
+  ["Nuffield Department of Clinical Neurosciences","Neuroscience","University resource","University of Oxford","Free","Advanced","University","1–10 hours","Clinical neuroscience research and education information.","https://www.ndcn.ox.ac.uk/"],
+  ["University of Oxford Medical Sciences","Medicine","University resource","University of Oxford","Free","Intermediate","All stages","1–10 hours","Explore medical sciences education and research.","https://www.medsci.ox.ac.uk/"],
+  ["University of Cambridge School of Clinical Medicine","Medicine","University resource","University of Cambridge","Free","Intermediate","All stages","1–10 hours","Explore clinical medicine education and research.","https://www.medschl.cam.ac.uk/"],
+  ["Imperial College School of Medicine","Medicine","University resource","Imperial College London","Free","Intermediate","All stages","1–10 hours","Medicine education, research and student information.","https://www.imperial.ac.uk/medicine/"],
+  ["UCL Medical School","Medicine","University resource","UCL","Free","Intermediate","All stages","1–10 hours","Medical education and research at UCL.","https://www.ucl.ac.uk/medical-school/"],
+  ["King's College London Medicine","Medicine","University resource","King's College London","Free","Intermediate","All stages","1–10 hours","Course and school information for medicine at King's.","https://www.kcl.ac.uk/study/undergraduate/courses/medicine-mbbs"],
+  ["University of Manchester Medicine","Medicine","University resource","University of Manchester","Free","Intermediate","All stages","1–10 hours","Medicine course and school information.","https://www.manchester.ac.uk/study/undergraduate/courses/2026/01427/mbchb-medicine/"],
+  ["University of Birmingham Medicine","Medicine","University resource","University of Birmingham","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.birmingham.ac.uk/study/undergraduate/courses/med/medicine-mbchb"],
+  ["University of Bristol Medicine","Medicine","University resource","University of Bristol","Free","Intermediate","All stages","1–10 hours","Medicine course information and admissions guidance.","https://www.bristol.ac.uk/study/undergraduate/2026/medicine/mbchb-medicine/"],
+  ["University of Leeds Medicine","Medicine","University resource","University of Leeds","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://courses.leeds.ac.uk/"],
+  ["University of Nottingham Medicine","Medicine","University resource","University of Nottingham","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.nottingham.ac.uk/ugstudy/course/Medicine-and-Surgery-MBBS"],
+  ["University of Sheffield Medicine","Medicine","University resource","University of Sheffield","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.sheffield.ac.uk/undergraduate/courses/2026/medicine-mbchb"],
+  ["University of Edinburgh Medicine","Medicine","University resource","University of Edinburgh","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.ed.ac.uk/studying/undergraduate/degrees/index.php?action=view&code=A100"],
+  ["University of Glasgow Medicine","Medicine","University resource","University of Glasgow","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.gla.ac.uk/undergraduate/degrees/medicine/"],
+  ["Queen's University Belfast Medicine","Medicine","University resource","Queen's University Belfast","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.qub.ac.uk/courses/undergraduate/medicine-mb-a100/"],
+  ["Cardiff University Medicine","Medicine","University resource","Cardiff University","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.cardiff.ac.uk/study/undergraduate/courses/course/medicine"],
+  ["University of Southampton Medicine","Medicine","University resource","University of Southampton","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.southampton.ac.uk/courses/medicine-degree-mbbs"],
+  ["University of Liverpool Medicine","Medicine","University resource","University of Liverpool","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.liverpool.ac.uk/study/undergraduate/courses/medicine-mbchb/overview/"],
+  ["University of Exeter Medicine","Medicine","University resource","University of Exeter","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.exeter.ac.uk/study/undergraduate/courses/medicine/medicine/"],
+  ["St George's, University of London Medicine","Medicine","University resource","St George's, University of London","Free","Intermediate","All stages","1–10 hours","Medicine course and admissions information.","https://www.sgul.ac.uk/study/undergraduate/medicine"],
+  ["AAMC — Aspiring Docs","Medical careers","Career guide","AAMC","Free","Beginner","All stages","30–60 mins","Medicine pathway information useful for broader career exploration.","https://students-residents.aamc.org/aspiring-docs"],
+  ["MedlinePlus","Healthcare","Health reference","U.S. National Library of Medicine","Free","Beginner","All stages","30–60 mins","Patient-friendly medical and health information.","https://medlineplus.gov/"],
+  ["NIH — Health Information","Research","Research hub","National Institutes of Health","Free","Intermediate","All stages","30–60 mins","Health research and biomedical science information.","https://www.nih.gov/health-information"],
+  ["British Heart Foundation","Healthcare","Charity / education","British Heart Foundation","Free","Beginner","All stages","30–60 mins","Heart and circulatory disease education and research information.","https://www.bhf.org.uk/"],
+  ["Cancer Research UK","Healthcare","Charity / education","Cancer Research UK","Free","Beginner","All stages","30–60 mins","Cancer biology, research and public-health information.","https://www.cancerresearchuk.org/"],
+  ["The King's Fund","Healthcare","Health policy","The King's Fund","Free","Intermediate","All stages","30–60 mins","Health and care policy, research and NHS analysis.","https://www.kingsfund.org.uk/"],
+  ["The BMJ","Research","Medical journal","BMJ","Mixed","Advanced","University","30–60 mins","Medical research, clinical evidence and healthcare commentary.","https://www.bmj.com/"],
+  ["The Lancet","Research","Medical journal","Elsevier","Mixed","Advanced","University","30–60 mins","Peer-reviewed medical research and global health content.","https://www.thelancet.com/"],
+  ["FutureLearn — Healthcare","Courses","Online courses","FutureLearn","Mixed","Beginner","All stages","1–10 hours","Online courses across healthcare and related topics.","https://www.futurelearn.com/subjects/healthcare-medicine-courses"],
+  ["Coursera — Health","Courses","Online courses","Coursera","Mixed","Beginner","All stages","1–10 hours","Courses from universities and organisations in health-related subjects.","https://www.coursera.org/browse/health"],
+  ["BBC Bitesize Biology","Biology","Study resource","BBC","Free","Beginner","Secondary school","1–10 hours","School-level biology explanations and revision resources.","https://www.bbc.co.uk/bitesize/subjects/z2pfb9q"],
+  ["BBC Bitesize Chemistry","Chemistry","Study resource","BBC","Free","Beginner","Secondary school","1–10 hours","School-level chemistry explanations and revision resources.","https://www.bbc.co.uk/bitesize/subjects/zvtykqt"],
+  ["BBC Bitesize Psychology","Psychology","Study resource","BBC","Free","Beginner","Secondary school","1–10 hours","School-level psychology explanations and revision resources.","https://www.bbc.co.uk/bitesize/subjects/zpmv7yc"],
+  ["NHS Volunteering","Volunteering","Opportunity guidance","NHS","Free","Beginner","All stages","30–60 mins","Starting point for NHS volunteering information; local availability varies.","https://www.nhs.uk/get-involved/volunteer/"],
+  ["NHS Work Experience","Work experience","Opportunity guidance","NHS","Free","Beginner","All stages","30–60 mins","Starting point for NHS work-experience information; local rules vary.","https://www.healthcareers.nhs.uk/career-planning/students-and-new-graduates/work-experience"],
+  ["Medical Schools Council — Work experience","Work experience","Guidance","Medical Schools Council","Free","Beginner","All stages","30–60 mins","Guidance for prospective medical students considering experience.","https://www.medschools.ac.uk/"],
+  ["NHS England","NHS","Health system","NHS England","Free","Intermediate","All stages","30–60 mins","Information about NHS services, priorities and healthcare delivery in England.","https://www.england.nhs.uk/"]
+].map((r,i)=>({id:`r${i+1}`,title:r[0],category:r[1],type:r[2],provider:r[3],access:r[4],difficulty:r[5],stage:r[6],time:r[7],description:r[8],url:r[9]}));
+
+const roadmap = [
+  ["Explore medicine",["Read about the role of a doctor","Watch a medical lecture","Read a medical book","Speak to someone in healthcare","Write your first reflection"]],
+  ["Understand healthcare",["Explore how the NHS works","Learn about one healthcare profession besides medicine","Read about medical ethics","Explore a current healthcare issue","Reflect on what good healthcare means"]],
+  ["Build experience",["Research local experience options","Check age and eligibility requirements","Log one experience or volunteering activity","Record what you learned","Write a reflection"]],
+  ["Develop academic knowledge",["Choose a biology topic to explore","Choose an anatomy topic","Explore physiology","Read one research or evidence summary","Create a learning note"]],
+  ["Research universities",["Choose several medical schools to explore","Compare course structures","Check current entry requirements","Research teaching style","Create a shortlist"]],
+  ["Prepare for admissions",["Understand the application timeline","Review admissions guidance","Organise experiences and reflections","Identify missing information","Create an application checklist"]],
+  ["UCAT preparation",["Read official UCAT information","Choose a realistic practice routine","Record a practice session","Review a weak area","Track accuracy over time"]],
+  ["Application preparation",["Review current course requirements","Plan application evidence","Review your experiences","Draft key reflections privately","Check deadlines on official sources"]],
+  ["Interview preparation",["Practise motivation questions","Practise an ethics question","Practise communication","Practise teamwork reflection","Mark five prompts as practised"]],
+  ["Medical school",["Explore what medical school study involves","Research student support","Explore career pathways","Keep learning beyond admissions","Reflect on your next professional goal"]]
+].map((s,i)=>({id:`stage${i+1}`,title:s[0],tasks:s[1].map((t,j)=>({id:`stage${i+1}task${j+1}`,text:t}))}));
+
+const interviewQuestions = [
+  ["Motivation","Why medicine?","Explain your motivation using specific experiences and learning rather than a memorised speech."],
+  ["NHS","What challenges does the NHS face?","Choose a current issue and explain its causes, consequences and possible responses."],
+  ["Ethics","Should healthcare ever be rationed?","Explore competing principles, uncertainty and how you would communicate a difficult decision."],
+  ["Communication","Explain a complex idea simply.","Pick a scientific or healthcare concept and explain it to someone with no specialist knowledge."],
+  ["Teamwork","Describe a time you worked in a team.","Focus on your contribution, what you learned and what you would change next time."],
+  ["Reflection","What did you learn from an experience?","Show how the experience changed your understanding or behaviour."],
+  ["Current affairs","Discuss a healthcare story you have followed.","Summarise the issue, identify reliable sources and explain why it matters."],
+  ["Professionalism","What does professionalism mean in medicine?","Consider trust, communication, boundaries, responsibility and reflection."]
+].map((x,i)=>({id:`q${i+1}`,category:x[0],question:x[1],tip:x[2]}));
+
+const universities = [
+  ["University of Oxford","Medicine","6 years","Check official course page","Oxford","https://www.ox.ac.uk/admissions/undergraduate/courses/course-listing/medicine"],
+  ["University of Cambridge","Medicine","6 years","Check official course page","Cambridge","https://www.undergraduate.study.cam.ac.uk/courses/medicine"],
+  ["Imperial College London","Medicine","6 years","Check official course page","London","https://www.imperial.ac.uk/study/courses/undergraduate/medicine/"],
+  ["UCL","Medicine MBBS","6 years","Check official course page","London","https://www.ucl.ac.uk/prospective-students/undergraduate/degrees/medicine-mbbs-bsc"],
+  ["King's College London","Medicine MBBS","5 years","Check official course page","London","https://www.kcl.ac.uk/study/undergraduate/courses/medicine-mbbs"],
+  ["University of Manchester","Medicine MBChB","5 years","Check official course page","Manchester","https://www.manchester.ac.uk/study/undergraduate/courses/2026/01427/mbchb-medicine/"],
+  ["University of Birmingham","Medicine MBChB","5 years","Check official course page","Birmingham","https://www.birmingham.ac.uk/study/undergraduate/courses/med/medicine-mbchb"],
+  ["University of Bristol","Medicine MBChB","5 years","Check official course page","Bristol","https://www.bristol.ac.uk/study/undergraduate/2026/medicine/mbchb-medicine/"],
+  ["University of Leeds","Medicine MBChB","5 years","Check official course page","Leeds","https://courses.leeds.ac.uk/"],
+  ["University of Nottingham","Medicine and Surgery MBBS","5 years","Check official course page","Nottingham","https://www.nottingham.ac.uk/ugstudy/course/Medicine-and-Surgery-MBBS"],
+  ["University of Sheffield","Medicine MBChB","5 years","Check official course page","Sheffield","https://www.sheffield.ac.uk/undergraduate/courses/2026/medicine-mbchb"],
+  ["University of Edinburgh","Medicine MBChB","6 years","Check official course page","Edinburgh","https://www.ed.ac.uk/studying/undergraduate/degrees/index.php?action=view&code=A100"]
+].map((u,i)=>({id:`u${i+1}`,name:u[0],course:u[1],length:u[2],requirements:u[3],location:u[4],url:u[5]}));
+
+const achievementDefs = [
+  ["🏆","First Resource",s=>s.completedResources.length>=1],
+  ["📚","10 Resources",s=>s.completedResources.length>=10],
+  ["🩺","First Experience",s=>s.experiences.length>=1],
+  ["🧠","100 UCAT Questions",s=>s.ucat.questions>=100],
+  ["🎧","5 Medical Media",s=>s.completedResources.filter(id=>["Podcasts","Documentaries","Lectures"].includes((resources.find(r=>r.id===id)||{}).category)).length>=5],
+  ["📖","5 Books",s=>s.completedResources.filter(id=>(resources.find(r=>r.id===id)||{}).category==="Books").length>=5],
+  ["✍️","First Reflection",s=>s.reflections.length>=1],
+  ["🎓","5 Universities",s=>Object.keys(s.universityStatus||{}).length>=5],
+  ["🚀","Roadmap Stage 1",s=>roadmap[0].tasks.every(t=>s.roadmap[t.id])],
+  ["🔥","4 Day Streak",s=>s.streak>=4]
+];
+
+const defaultState = () => ({
+  profile:{name:"",stage:"Exploring medicine",goals:[]},
+  completedResources:[],savedResources:[],experiences:[],reflections:[],
+  ucat:{questions:0,correct:0,minutes:0,sessions:0,weakArea:"None yet"},
+  roadmap:{},universityStatus:{},interviewPractised:[],activity:[],
+  preferences:{dark:false,notifications:true},streak:0,lastActive:null
+});
+
+let state = loadState();
+let currentRoute = "dashboard";
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    return raw ? {...defaultState(),...JSON.parse(raw)} : defaultState();
+  }catch{return defaultState()}
+}
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function initials(name){return (name||"M").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()}
+function today(){return new Date().toISOString().slice(0,10)}
+function toast(msg,success=true){const el=document.createElement("div");el.className="toast"+(success?" success":"");el.textContent=msg;document.getElementById("toast-region").appendChild(el);setTimeout(()=>el.remove(),2600)}
+function logActivity(text){state.activity.unshift({text,date:new Date().toISOString()});state.activity=state.activity.slice(0,12);touchActivity()}
+function touchActivity(){
+  const d=today();
+  if(state.lastActive!==d){
+    const prev=state.lastActive?new Date(state.lastActive):null, cur=new Date(d);
+    if(prev){const diff=Math.round((cur-prev)/86400000);state.streak=diff===1?state.streak+1:1}else state.streak=1;
+    state.lastActive=d;
+  }
+  saveState()
+}
+function openModal(id){document.getElementById(id)?.classList.remove("hidden")}
+function closeModal(id){document.getElementById(id)?.classList.add("hidden")}
+
+function setupSelect(id,items,first="All"){
+  const el=document.getElementById(id); if(!el)return;
+  el.innerHTML=`<option value="">${first}</option>`+items.map(x=>`<option>${esc(x)}</option>`).join("");
+}
+function initOnboarding(){
+  setupSelect("onboarding-stage",STAGES,"Select your stage");
+  document.getElementById("onboarding-goals").innerHTML=GOALS.map((g,i)=>`<label><input type="checkbox" name="goal" value="${esc(g)}"> ${esc(g)}</label>`).join("");
+  document.getElementById("experience-type").innerHTML=EXPERIENCE_TYPES.map(x=>`<option>${esc(x)}</option>`).join("");
+  if(!state.profile.name)openModal("onboarding");
+}
+function renderShell(){
+  const name=state.profile.name||"MedPath";
+  document.getElementById("top-name").textContent=name;
+  document.getElementById("top-avatar").textContent=initials(name);
+  document.getElementById("profile-avatar").textContent=initials(name);
+  document.getElementById("profile-name").textContent=name;
+  document.getElementById("profile-stage").textContent=state.profile.stage||"Exploring medicine";
+  document.getElementById("profile-goals").textContent=state.profile.goals?.length?state.profile.goals.join(" · "):"No goals selected yet.";
+  document.body.classList.toggle("dark",!!state.preferences.dark);
+  document.getElementById("dark-toggle").checked=!!state.preferences.dark;
+  document.getElementById("notification-toggle").checked=state.preferences.notifications!==false;
+}
+function navigate(route){
+  currentRoute=route||location.hash.slice(1)||"dashboard";
+  if(!document.getElementById(currentRoute))currentRoute="dashboard";
+  document.querySelectorAll(".route-section").forEach(s=>s.classList.toggle("hidden",s.id!==currentRoute));
+  document.querySelectorAll("[data-route]").forEach(a=>a.classList.toggle("active",a.dataset.route===currentRoute));
+  if(currentRoute==="resources")renderResources();
+  if(currentRoute==="saved")renderSaved();
+  if(currentRoute==="dashboard")renderDashboard();
+  if(currentRoute==="experience")renderExperiences();
+  if(currentRoute==="ucat")renderUCAT();
+  if(currentRoute==="roadmap")renderRoadmap();
+  if(currentRoute==="universities")renderUniversities();
+  if(currentRoute==="interviews")renderInterviews();
+  if(currentRoute==="reflections")renderReflections();
+  if(currentRoute==="progress")renderProgress();
+  if(currentRoute==="profile")renderProfile();
+  if(currentRoute==="settings")renderShell();
+  document.getElementById("sidebar").classList.remove("open");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function progressValues(){
+  const roadmapDone=roadmap.flatMap(s=>s.tasks).filter(t=>state.roadmap[t.id]).length;
+  const roadmapTotal=roadmap.flatMap(s=>s.tasks).length;
+  const interview=state.interviewPractised.length;
+  const components=[
+    Math.min(state.completedResources.length/10,1),
+    Math.min(state.experiences.length/3,1),
+    Math.min(state.reflections.length/3,1),
+    Math.min(state.ucat.questions/100,1),
+    roadmapTotal?roadmapDone/roadmapTotal:0,
+    Math.min(interview/5,1),
+    Math.min(Object.keys(state.universityStatus).length/5,1)
+  ];
+  const overall=Math.round(components.reduce((a,b)=>a+b,0)/components.length*100);
+  return {overall,roadmapDone,roadmapTotal};
+}
+function renderDashboard(){
+  renderShell(); const p=progressValues(), name=state.profile.name||"there";
+  document.getElementById("welcome-title").textContent=`Good ${new Date().getHours()<12?"morning":new Date().getHours()<18?"afternoon":"evening"}, ${name}.`;
+  document.getElementById("overall-progress").textContent=p.overall+"%";
+  document.getElementById("progress-ring").textContent=p.overall+"%";
+  document.getElementById("overall-bar").style.width=p.overall+"%";
+  document.getElementById("progress-message").textContent=p.overall>=80?"You’re building a strong, organised journey.":p.overall>=40?"Nice momentum. Keep building one useful habit at a time.":"Start with one small step — progress builds from consistent actions.";
+  document.getElementById("dash-completed").textContent=state.completedResources.length;
+  document.getElementById("dash-resource-total").textContent=resources.length;
+  document.getElementById("dash-experiences").textContent=state.experiences.length;
+  document.getElementById("dash-ucat").textContent=state.ucat.questions;
+  document.getElementById("dash-roadmap").textContent=Math.round((p.roadmapDone/p.roadmapTotal)*100)+"%";
+  document.getElementById("dash-saved").textContent=state.savedResources.length;
+  const steps=[
+    ["Complete a resource",()=>state.completedResources.length<1,"resources"],
+    ["Log an experience",()=>state.experiences.length<1,"experience"],
+    ["Complete 10 UCAT questions",()=>state.ucat.questions<10,"ucat"],
+    ["Research one medical school",()=>Object.keys(state.universityStatus).length<1,"universities"],
+    ["Write a reflection",()=>state.reflections.length<1,"reflections"]
+  ];
+  const active=steps.filter(x=>x[1]()).slice(0,4);
+  document.getElementById("next-steps").innerHTML=(active.length?active:[["Review your progress",()=>true,"progress"]]).map((x,i)=>`<a class="task-item" href="#${x[2]}"><span>${i+1}</span><strong>${esc(x[0])}</strong><span class="muted">→</span></a>`).join("");
+  const rec=resources.filter(r=>r.stage==="All stages"||r.stage===state.profile.stage).slice(0,4);
+  document.getElementById("personalised-title").textContent=state.profile.stage||"Recommended";
+  document.getElementById("dashboard-recommendations").innerHTML=rec.map(r=>`<div class="mini-resource"><span class="mini-icon">▦</span><div><strong>${esc(r.title)}</strong><div class="muted">${esc(r.category)} · ${esc(r.access)}</div></div></div>`).join("");
+  document.getElementById("recent-activity").innerHTML=state.activity.length?state.activity.slice(0,7).map(a=>`<div class="activity-item"><span>${esc(a.text)}</span><span class="muted">${new Date(a.date).toLocaleDateString()}</span></div>`).join(""):`<p class="muted">Your activity will appear here as you use MedPath.</p>`;
+}
+function renderResources(){
+  const q=document.getElementById("resource-search").value.toLowerCase().trim();
+  const filters={category:document.getElementById("filter-category").value,type:document.getElementById("filter-type").value,access:document.getElementById("filter-access").value,difficulty:document.getElementById("filter-difficulty").value,stage:document.getElementById("filter-stage").value,time:document.getElementById("filter-time").value};
+  const list=resources.filter(r=>(!q||Object.values(r).join(" ").toLowerCase().includes(q))&&(!filters.category||r.category===filters.category)&&(!filters.type||r.type===filters.type)&&(!filters.access||r.access===filters.access)&&(!filters.difficulty||r.difficulty===filters.difficulty)&&(!filters.stage||r.stage===filters.stage||r.stage==="All stages")&&(!filters.time||r.time===filters.time));
+  document.getElementById("resource-count").textContent=`${list.length} resource${list.length===1?"":"s"}`;
+  document.getElementById("resource-grid").innerHTML=list.map(resourceCard).join("")||`<div class="card"><h2>No matches</h2><p class="muted">Try clearing a filter or searching for a broader term.</p></div>`;
+}
+function resourceCard(r){
+  const saved=state.savedResources.includes(r.id), done=state.completedResources.includes(r.id);
+  return `<article class="card resource-card"><div class="resource-top"><span class="resource-icon">▦</span><div><h3>${esc(r.title)}</h3><span class="pill">${esc(r.category)}</span></div></div><p class="desc">${esc(r.description)}</p><div class="pill-row"><span class="pill">${esc(r.access)}</span><span class="pill">${esc(r.difficulty)}</span><span class="pill">${esc(r.stage)}</span></div><div class="resource-meta"><span><strong>Provider</strong><br>${esc(r.provider)}</span><span><strong>Time</strong><br>${esc(r.time)}</span></div><div class="resource-actions"><a class="button secondary" href="${esc(r.url)}" target="_blank" rel="noopener">Open resource ↗</a><button class="button ghost icon-save" data-save="${r.id}" aria-label="${saved?"Remove from saved":"Save resource"}">${saved?"★":"☆"}</button></div><button class="button ${done?"ghost":"primary"} small data-complete="${r.id}">${done?"Completed ✓":"Mark complete"}</button></article>`;
+}
+function setupResourceFilters(){
+  setupSelect("filter-category",[...new Set(resources.map(r=>r.category))].sort());
+  setupSelect("filter-type",[...new Set(resources.map(r=>r.type))].sort());
+  setupSelect("filter-access",[...new Set(resources.map(r=>r.access))].sort());
+  setupSelect("filter-difficulty",[...new Set(resources.map(r=>r.difficulty))].sort());
+  setupSelect("filter-stage",STAGES);
+  setupSelect("filter-time",[...new Set(resources.map(r=>r.time))].sort());
+  ["resource-search","filter-category","filter-type","filter-access","filter-difficulty","filter-stage","filter-time"].forEach(id=>document.getElementById(id).addEventListener("input",renderResources));
+}
+function renderSaved(){document.getElementById("saved-grid").innerHTML=state.savedResources.map(id=>resources.find(r=>r.id===id)).filter(Boolean).map(resourceCard).join("")||`<div class="card"><h2>Nothing saved yet.</h2><p class="muted">Explore the library and bookmark resources you want to return to.</p><a class="button primary" href="#resources">Explore resources</a></div>`}
+function renderExperiences(){
+  document.getElementById("experience-types").innerHTML=EXPERIENCE_TYPES.map(t=>`<div class="experience-type"><strong>${esc(t)}</strong><span class="muted">Availability and eligibility vary.</span></div>`).join("");
+  document.getElementById("experience-list").innerHTML=state.experiences.length?state.experiences.map((e,i)=>`<article class="card log-card"><button class="icon-button delete" data-delete-experience="${i}" aria-label="Delete experience">×</button><span class="label">${esc(e.type)}</span><h3>${esc(e.role)} · ${esc(e.organisation)}</h3><p class="muted">${esc(e.date)}${e.location?" · "+esc(e.location):""}</p><p><strong>What I did:</strong> ${esc(e.what||"Not recorded.")}</p><p><strong>What I learned:</strong> ${esc(e.learned||"Not recorded.")}</p><p><strong>Skills:</strong> ${esc(e.skills||"Not recorded.")}</p></article>`).join(""):`<div class="card"><h2>Your experience log is empty.</h2><p class="muted">Record work experience, volunteering, shadowing or other relevant activities.</p></div>`;
+}
+function renderUCAT(){
+  document.getElementById("ucat-questions").textContent=state.ucat.questions;
+  document.getElementById("ucat-correct").textContent=state.ucat.correct;
+  document.getElementById("ucat-accuracy").textContent=state.ucat.questions?Math.round(state.ucat.correct/state.ucat.questions*100)+"%":"0%";
+  document.getElementById("ucat-sessions").textContent=state.ucat.sessions;
+  document.getElementById("ucat-resources").innerHTML=resources.filter(r=>r.category==="UCAT").map(resourceCard).join("")||`<div class="card"><p class="muted">Official UCAT information is linked above. Add third-party resources only after checking the provider.</p></div>`;
+}
+function renderRoadmap(){
+  document.getElementById("roadmap-container").innerHTML=roadmap.map((s,i)=>{
+    const done=s.tasks.filter(t=>state.roadmap[t.id]).length;
+    return `<article class="roadmap-stage ${done===s.tasks.length?"complete":""}"><div class="stage-number">${i+1}</div><div><h3>${esc(s.title)}</h3><div class="roadmap-tasks">${s.tasks.map(t=>`<label class="roadmap-task"><input type="checkbox" data-roadmap="${t.id}" ${state.roadmap[t.id]?"checked":""}> <span>${esc(t.text)}</span></label>`).join("")}</div></div><span class="stage-progress">${done}/${s.tasks.length}</span></article>`;
+  }).join("");
+}
+function renderUniversities(){
+  const q=document.getElementById("university-search").value.toLowerCase().trim(), status=document.getElementById("university-status").value;
+  const list=universities.filter(u=>(!q||(u.name+" "+u.course+" "+u.location).toLowerCase().includes(q))&&(!status||state.universityStatus[u.id]===status));
+  document.getElementById("university-grid").innerHTML=list.map(u=>`<article class="card university-card"><span class="label">${esc(u.location)}</span><h3>${esc(u.name)}</h3><p class="muted">${esc(u.course)}</p><div class="university-details"><div><strong>Course length:</strong> ${esc(u.length)}</div><div><strong>Entry requirements:</strong> <span>${esc(u.requirements)}</span></div><div><strong>Status:</strong> <span>${esc(state.universityStatus[u.id]||"Not started")}</span></div></div><select class="status-select" data-university="${u.id}"><option value="">Not started</option>${["Interested","Researching","Shortlisted","Applied"].map(s=>`<option ${state.universityStatus[u.id]===s?"selected":""}>${s}</option>`).join("")}</select><a class="button secondary full" style="margin-top:9px" href="${esc(u.url)}" target="_blank" rel="noopener">Check official website ↗</a></article>`).join("")||`<div class="card"><h2>No universities found.</h2></div>`;
+}
+function renderInterviews(){
+  document.getElementById("interview-grid").innerHTML=interviewQuestions.map(q=>`<article class="interview-card ${state.interviewPractised.includes(q.id)?"practised":""}"><span class="label">${esc(q.category)}</span><h3>${esc(q.question)}</h3><div class="question">${esc(q.tip)}</div><button class="button ${state.interviewPractised.includes(q.id)?"ghost":"primary"}" data-interview="${q.id}">${state.interviewPractised.includes(q.id)?"Practised ✓":"Mark as practised"}</button></article>`).join("");
+}
+function renderReflections(){
+  document.getElementById("reflection-list").innerHTML=state.reflections.length?state.reflections.map((r,i)=>`<article class="card log-card"><button class="icon-button delete" data-delete-reflection="${i}" aria-label="Delete reflection">×</button><span class="label">${esc(r.date)}</span><h3>${esc(r.experience)}</h3><p><strong>What happened?</strong><br>${esc(r.happened)}</p><p><strong>What did I learn?</strong><br>${esc(r.learned)}</p><p><strong>How did it change my understanding of medicine?</strong><br>${esc(r.medicine||"—")}</p><p><strong>Skills:</strong> ${esc(r.skills||"—")}</p><p><strong>Next time:</strong> ${esc(r.different||"—")}</p></article>`).join(""):`<div class="card"><h2>Your reflection journal is empty.</h2><p class="muted">Complete an experience and record what you learned.</p><button class="button primary" data-open-modal="reflection-modal">Write your first reflection</button></div>`;
+}
+function renderProgress(){
+  const p=progressValues(), metrics=[
+    ["Overall progress",p.overall+"%"],["Resources completed",state.completedResources.length],["Experience logged",state.experiences.length],
+    ["Reflections written",state.reflections.length],["UCAT questions",state.ucat.questions],["Interview questions",state.interviewPractised.length],
+    ["Universities researched",Object.keys(state.universityStatus).length],["Roadmap completion",Math.round(p.roadmapDone/p.roadmapTotal*100)+"%"]
+  ];
+  document.getElementById("progress-grid").innerHTML=metrics.map(m=>`<article class="card metric-card"><span class="label">${esc(m[0])}</span><strong>${esc(m[1])}</strong></article>`).join("");
+  document.getElementById("achievement-grid").innerHTML=achievementDefs.map(a=>`<div class="achievement ${a[2](state)?"unlocked":""}"><div class="achievement-icon">${a[0]}</div><strong>${a[1]}</strong><span class="muted">${a[2](state)?"Unlocked":"Keep going"}</span></div>`).join("");
+}
+function renderProfile(){
+  renderShell();
+  const p=progressValues();
+  document.getElementById("profile-stats").innerHTML=[
+    ["Overall progress",p.overall+"%"],["Resources",state.completedResources.length],["Experiences",state.experiences.length],["Reflections",state.reflections.length],
+    ["UCAT questions",state.ucat.questions],["Universities",Object.keys(state.universityStatus).length],["Achievements",achievementDefs.filter(a=>a[2](state)).length],["Streak",state.streak+" days"]
+  ].map(x=>`<div class="profile-stat"><strong>${esc(x[1])}</strong><span>${esc(x[0])}</span></div>`).join("");
+}
+function refresh(){renderShell();if(currentRoute==="dashboard")renderDashboard();else navigate(currentRoute)}
+
+document.addEventListener("click",e=>{
+  const route=e.target.closest("[data-route]"); if(route){e.preventDefault();location.hash=route.dataset.route;return}
+  const modalBtn=e.target.closest("[data-open-modal]"); if(modalBtn){openModal(modalBtn.dataset.openModal);return}
+  const close=e.target.closest("[data-close-modal]"); if(close){closeModal(close.dataset.closeModal);return}
+  if(e.target.id==="close-onboarding")return;
+  const save=e.target.closest("[data-save]"); if(save){
+    const id=save.dataset.save;state.savedResources=state.savedResources.includes(id)?state.savedResources.filter(x=>x!==id):[...state.savedResources,id];
+    logActivity(state.savedResources.includes(id)?"Saved a resource":"Removed a saved resource");toast(state.savedResources.includes(id)?"Saved to your profile ★":"Removed from saved");refresh();return
+  }
+  const complete=e.target.closest("[data-complete]"); if(complete){
+    const id=complete.dataset.complete;
+    if(!state.completedResources.includes(id)){state.completedResources.push(id);logActivity("Resource completed ✓");toast("Resource completed ✓")}
+    saveState();refresh();return
+  }
+  const delE=e.target.closest("[data-delete-experience]");if(delE){if(confirm("Delete this experience?")){state.experiences.splice(+delE.dataset.deleteExperience,1);saveState();toast("Experience deleted");refresh()}return}
+  const delR=e.target.closest("[data-delete-reflection]");if(delR){if(confirm("Delete this reflection?")){state.reflections.splice(+delR.dataset.deleteReflection,1);saveState();toast("Reflection deleted");refresh()}return}
+  const int=e.target.closest("[data-interview]");if(int){const id=int.dataset.interview;if(!state.interviewPractised.includes(id)){state.interviewPractised.push(id);logActivity("Interview question practised ✓");toast("Marked as practised ✓")}saveState();refresh();return}
+  if(e.target.id==="mobile-menu")document.getElementById("sidebar").classList.toggle("open");
+  if(e.target.id==="notification-button"){toast(state.preferences.notifications?"Your UCAT practice target is waiting.":"Notifications are off.",false)}
+  if(e.target.id==="profile-chip")location.hash="profile";
+  if(e.target.id==="clear-filters"){document.querySelectorAll("#resources select").forEach(x=>x.value="");document.getElementById("resource-search").value="";renderResources()}
+  if(e.target.id==="record-ucat"){recordUCAT()}
+  if(e.target.id==="export-data")exportData();
+  if(e.target.id==="reset-data")resetData();
+  if(e.target.id==="edit-profile"){openModal("onboarding");document.getElementById("onboarding-name").value=state.profile.name;document.getElementById("onboarding-stage").value=state.profile.stage;document.querySelectorAll("#onboarding-goals input").forEach(x=>x.checked=state.profile.goals.includes(x.value))}
+});
+document.addEventListener("change",e=>{
+  if(e.target.matches("[data-roadmap]")){state.roadmap[e.target.dataset.roadmap]=e.target.checked;logActivity("Roadmap updated ✓");toast("Roadmap updated ✓");saveState();refresh()}
+  if(e.target.matches("[data-university]")){if(e.target.value)state.universityStatus[e.target.dataset.university]=e.target.value;else delete state.universityStatus[e.target.dataset.university];logActivity("University shortlist updated");saveState();toast("University status saved");refresh()}
+  if(e.target.id==="dark-toggle"){state.preferences.dark=e.target.checked;saveState();renderShell()}
+  if(e.target.id==="notification-toggle"){state.preferences.notifications=e.target.checked;saveState();toast(e.target.checked?"Notifications on":"Notifications off",false)}
+});
+document.getElementById("onboarding-form").addEventListener("submit",e=>{
+  e.preventDefault();
+  state.profile.name=document.getElementById("onboarding-name").value.trim();
+  state.profile.stage=document.getElementById("onboarding-stage").value;
+  state.profile.goals=[...document.querySelectorAll("#onboarding-goals input:checked")].map(x=>x.value);
+  touchActivity();closeModal("onboarding");renderShell();toast("Welcome to MedPath ✓");navigate("dashboard");
+});
+document.getElementById("experience-form").addEventListener("submit",e=>{
+  e.preventDefault();const f=new FormData(e.target),o=Object.fromEntries(f.entries());
+  state.experiences.unshift(o);logActivity("Experience logged ✓");saveState();e.target.reset();closeModal("experience-modal");toast("Experience logged ✓");refresh();
+});
+document.getElementById("reflection-form").addEventListener("submit",e=>{
+  e.preventDefault();const f=new FormData(e.target),o=Object.fromEntries(f.entries());
+  state.reflections.unshift(o);logActivity("Reflection saved ✓");saveState();e.target.reset();closeModal("reflection-modal");toast("Reflection saved ✓");refresh();
+});
+document.getElementById("resource-search").addEventListener("keydown",e=>{if(e.key==="Escape"){e.target.value="";renderResources()}});
+document.getElementById("university-search").addEventListener("input",renderUniversities);
+document.getElementById("university-status").addEventListener("input",renderUniversities);
+document.getElementById("global-search").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){const q=e.target.value.trim();if(q){location.hash="resources";setTimeout(()=>{document.getElementById("resource-search").value=q;renderResources()},0)}}
+});
+window.addEventListener("hashchange",()=>navigate(location.hash.slice(1)||"dashboard"));
+window.addEventListener("storage",()=>{state=loadState();refresh()});
+
+function recordUCAT(){
+  const q=Math.max(0,+document.getElementById("ucat-q").value||0),c=Math.max(0,+document.getElementById("ucat-c").value||0),m=Math.max(0,+document.getElementById("ucat-minutes").value||0);
+  if(c>q){toast("Correct answers cannot exceed questions.",false);return}
+  if(!q){toast("Enter at least one question.",false);return}
+  state.ucat.questions+=q;state.ucat.correct+=c;state.ucat.minutes+=m;state.ucat.sessions+=1;state.ucat.weakArea=document.getElementById("ucat-weak").value;
+  logActivity(`UCAT practice recorded: ${q} questions`);saveState();document.getElementById("ucat-q").value="";document.getElementById("ucat-c").value="";document.getElementById("ucat-minutes").value="";toast("UCAT session recorded ✓");refresh();
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="medpath-data.json";a.click();URL.revokeObjectURL(url);toast("Your data was exported ✓");
+}
+function resetData(){
+  if(!confirm("Reset all MedPath data in this browser? This cannot be undone."))return;
+  localStorage.removeItem(STORAGE_KEY);state=defaultState();location.hash="dashboard";initOnboarding();renderShell();navigate("dashboard");toast("MedPath data reset",false);
+}
+
+setupResourceFilters();initOnboarding();renderShell();navigate(location.hash.slice(1)||"dashboard");
+'''
+
+readme = r'''# MedPath — £0 Local Prototype
+
+MedPath is a single-page, browser-only prototype based on the supplied product specification.
+
+## Files
+
+```text
+MedPath/
+├── index.html
+├── style.css
+├── script.js
+├── README.md
+└── assets/
+    └── favicon.svg
+
+
