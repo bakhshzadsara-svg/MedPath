@@ -1,0 +1,1049 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="MedPath helps aspiring medical students explore medicine, prepare for applications, find resources and plan their journey."
+    >
+
+    <title>MedPath — Your Path to Medicine</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- =========================
+     NAVIGATION
+========================= -->
+
+<header class="navbar">
+
+    <a href="#home" class="logo">
+        <span class="logo-symbol">🩺</span>
+        <span>MedPath</span>
+    </a>
+
+    <nav class="desktop-navigation">
+
+        <a href="#home">Home</a>
+
+        <a href="#explore">Explore</a>
+
+        <a href="#ucat">UCAT</a>
+
+        <a href="#universities">Universities</a>
+
+        <a href="#roadmap">Roadmap</a>
+
+    </nav>
+
+    <button
+        class="nav-cta"
+        onclick="openJourney()"
+    >
+        Get Started
+    </button>
+
+    <button
+        class="mobile-menu-button"
+        onclick="toggleMobileMenu()"
+        aria-label="Open navigation"
+    >
+        ☰
+    </button>
+
+</header>
+
+
+<!-- =========================
+     MOBILE NAVIGATION
+========================= -->
+
+<div
+    id="mobileMenu"
+    class="mobile-menu"
+>
+
+    <a href="#home" onclick="closeMobileMenu()">Home</a>
+
+    <a href="#explore" onclick="closeMobileMenu()">Explore</a>
+
+    <a href="#ucat" onclick="closeMobileMenu()">UCAT</a>
+
+    <a href="#universities" onclick="closeMobileMenu()">Universities</a>
+
+    <a href="#roadmap" onclick="closeMobileMenu()">Roadmap</a>
+
+    <button onclick="openJourney(); closeMobileMenu()">
+        Get Started
+    </button>
+
+</div>
+
+
+<main>
+
+
+<!-- =========================
+     HERO
+========================= -->
+
+<section
+    id="home"
+    class="hero"
+>
+
+    <div class="hero-content">
+
+        <div class="hero-badge">
+            🩺 Built for aspiring doctors
+        </div>
+
+        <h1>
+            Your path to
+            <span>medicine.</span>
+        </h1>
+
+        <p class="hero-description">
+            Whether you're just exploring medicine, preparing for
+            the UCAT, applying to medical school or considering
+            graduate entry — MedPath helps you figure out what's next.
+        </p>
+
+        <div class="hero-buttons">
+
+            <button
+                class="primary-button"
+                onclick="openJourney()"
+            >
+                Start my journey →
+            </button>
+
+            <a
+                href="#explore"
+                class="secondary-button"
+            >
+                Explore MedPath
+            </a>
+
+        </div>
+
+        <div class="hero-statistics">
+
+            <div>
+                <strong>📚</strong>
+                <span>Resources</span>
+            </div>
+
+            <div>
+                <strong>🧠</strong>
+                <span>UCAT</span>
+            </div>
+
+            <div>
+                <strong>🏫</strong>
+                <span>Universities</span>
+            </div>
+
+            <div>
+                <strong>🎤</strong>
+                <span>Interviews</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- DASHBOARD PREVIEW -->
+
+    <div class="dashboard">
+
+        <div class="dashboard-header">
+
+            <div>
+                <small>YOUR MEDPATH</small>
+
+                <h3>
+                    Your Journey
+                </h3>
+            </div>
+
+            <div class="profile-circle">
+                👤
+            </div>
+
+        </div>
+
+
+        <div class="journey-status">
+
+            <div class="status-heading">
+
+                <span>
+                    Journey progress
+                </span>
+
+                <strong>
+                    35%
+                </strong>
+
+            </div>
+
+            <div class="progress-background">
+
+                <div class="progress-bar"></div>
+
+            </div>
+
+        </div>
+
+
+        <div class="dashboard-items">
+
+            <div class="dashboard-item">
+
+                <div class="dashboard-icon blue">
+                    🧠
+                </div>
+
+                <div>
+
+                    <strong>
+                        UCAT
+                    </strong>
+
+                    <small>
+                        Preparation
+                    </small>
+
+                </div>
+
+                <span class="arrow">
+                    →
+                </span>
+
+            </div>
+
+
+            <div class="dashboard-item">
+
+                <div class="dashboard-icon purple">
+                    🏫
+                </div>
+
+                <div>
+
+                    <strong>
+                        Universities
+                    </strong>
+
+                    <small>
+                        Explore medical schools
+                    </small>
+
+                </div>
+
+                <span class="arrow">
+                    →
+                </span>
+
+            </div>
+
+
+            <div class="dashboard-item">
+
+                <div class="dashboard-icon green">
+                    📚
+                </div>
+
+                <div>
+
+                    <strong>
+                        Resources
+                    </strong>
+
+                    <small>
+                        Recommended for you
+                    </small>
+
+                </div>
+
+                <span class="arrow">
+                    →
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="next-step">
+
+            <span>
+                ✨
+            </span>
+
+            <div>
+
+                <small>
+                    RECOMMENDED NEXT STEP
+                </small>
+
+                <strong>
+                    Tell us where you are
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     PERSONALISATION
+========================= -->
+
+<section
+    id="explore"
+    class="section"
+>
+
+    <div class="section-heading">
+
+        <p class="eyebrow">
+            MADE FOR YOU
+        </p>
+
+        <h2>
+            Where are you on your
+            <span>medicine journey?</span>
+        </h2>
+
+        <p>
+            MedPath isn't tied to one age or education level.
+            Choose the stage that best describes you and we'll
+            recommend the most useful resources.
+        </p>
+
+    </div>
+
+
+    <div class="journey-grid">
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('exploring')"
+        >
+
+            <span class="journey-emoji">
+                🌱
+            </span>
+
+            <h3>
+                I'm exploring medicine
+            </h3>
+
+            <p>
+                I'm considering medicine and want to understand
+                what the career and application process involve.
+            </p>
+
+            <span class="card-arrow">
+                Explore →
+            </span>
+
+        </button>
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('student')"
+        >
+
+            <span class="journey-emoji">
+                📚
+            </span>
+
+            <h3>
+                I'm currently studying
+            </h3>
+
+            <p>
+                I'm studying at school, college or sixth form
+                and I'm thinking about medicine.
+            </p>
+
+            <span class="card-arrow">
+                Continue →
+            </span>
+
+        </button>
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('university')"
+        >
+
+            <span class="journey-emoji">
+                🎓
+            </span>
+
+            <h3>
+                I'm at university
+            </h3>
+
+            <p>
+                I'm considering medicine alongside or after
+                completing my current degree.
+            </p>
+
+            <span class="card-arrow">
+                Explore →
+            </span>
+
+        </button>
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('graduate')"
+        >
+
+            <span class="journey-emoji">
+                🔄
+            </span>
+
+            <h3>
+                I'm a graduate
+            </h3>
+
+            <p>
+                I'm considering graduate-entry medicine or
+                applying after completing my degree.
+            </p>
+
+            <span class="card-arrow">
+                Explore →
+            </span>
+
+        </button>
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('applying')"
+        >
+
+            <span class="journey-emoji">
+                📝
+            </span>
+
+            <h3>
+                I'm applying this year
+            </h3>
+
+            <p>
+                I'm actively preparing my medical-school
+                application and need focused guidance.
+            </p>
+
+            <span class="card-arrow">
+                Get started →
+            </span>
+
+        </button>
+
+
+        <button
+            class="journey-card"
+            onclick="selectJourney('international')"
+        >
+
+            <span class="journey-emoji">
+                🌍
+            </span>
+
+            <h3>
+                I'm an international applicant
+            </h3>
+
+            <p>
+                I'm interested in studying medicine in the
+                UK and want to understand my options.
+            </p>
+
+            <span class="card-arrow">
+                Explore →
+            </span>
+
+        </button>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     FEATURES
+========================= -->
+
+<section class="section feature-section">
+
+    <div class="section-heading">
+
+        <p class="eyebrow">
+            EVERYTHING IN ONE PLACE
+        </p>
+
+        <h2>
+            Your medicine
+            <span>toolkit.</span>
+        </h2>
+
+        <p>
+            From exploring medicine to preparing for interviews,
+            MedPath brings the journey together.
+        </p>
+
+    </div>
+
+
+    <div class="feature-grid">
+
+
+        <article
+            class="feature-card blue-card"
+            onclick="showFeature('resources')"
+        >
+
+            <div class="feature-icon">
+                📚
+            </div>
+
+            <h3>
+                Resource Hub
+            </h3>
+
+            <p>
+                Find useful resources for medicine, science,
+                applications, interviews and more.
+            </p>
+
+            <span>
+                Explore resources →
+            </span>
+
+        </article>
+
+
+        <article
+            id="ucat"
+            class="feature-card purple-card"
+            onclick="showFeature('ucat')"
+        >
+
+            <div class="feature-icon">
+                🧠
+            </div>
+
+            <h3>
+                UCAT Preparation
+            </h3>
+
+            <p>
+                Build your UCAT skills with practice,
+                strategies and performance tracking.
+            </p>
+
+            <span>
+                Prepare for UCAT →
+            </span>
+
+        </article>
+
+
+        <article
+            id="universities"
+            class="feature-card green-card"
+            onclick="showFeature('universities')"
+        >
+
+            <div class="feature-icon">
+                🏫
+            </div>
+
+            <h3>
+                Medical Schools
+            </h3>
+
+            <p>
+                Research medical schools and organise your
+                university shortlist.
+            </p>
+
+            <span>
+                Find universities →
+            </span>
+
+        </article>
+
+
+        <article
+            class="feature-card orange-card"
+            onclick="showFeature('experience')"
+        >
+
+            <div class="feature-icon">
+                💼
+            </div>
+
+            <h3>
+                Experience
+            </h3>
+
+            <p>
+                Learn about healthcare experience, volunteering
+                and reflecting on what you learn.
+            </p>
+
+            <span>
+                Explore experience →
+            </span>
+
+        </article>
+
+
+        <article
+            class="feature-card pink-card"
+            onclick="showFeature('interviews')"
+        >
+
+            <div class="feature-icon">
+                🎤
+            </div>
+
+            <h3>
+                Interview Preparation
+            </h3>
+
+            <p>
+                Practise MMI-style stations, communication,
+                ethics and healthcare scenarios.
+            </p>
+
+            <span>
+                Practise interviews →
+            </span>
+
+        </article>
+
+
+        <article
+            class="feature-card navy-card"
+            onclick="showFeature('roadmap')"
+        >
+
+            <div class="feature-icon">
+                🗺️
+            </div>
+
+            <h3>
+                Personal Roadmap
+            </h3>
+
+            <p>
+                Get a clearer picture of what you could focus
+                on next based on your goals.
+            </p>
+
+            <span>
+                View roadmap →
+            </span>
+
+        </article>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     ROADMAP
+========================= -->
+
+<section
+    id="roadmap"
+    class="roadmap-section"
+>
+
+    <div class="roadmap-container">
+
+
+        <div class="roadmap-text">
+
+            <p class="eyebrow">
+                YOUR NEXT STEP
+            </p>
+
+            <h2>
+                Medicine doesn't have
+                to feel <span>overwhelming.</span>
+            </h2>
+
+            <p>
+                There are lots of things to understand:
+                admissions tests, universities, experience,
+                applications and interviews.
+            </p>
+
+            <p>
+                MedPath breaks everything down into smaller,
+                manageable steps.
+            </p>
+
+            <button
+                class="primary-button"
+                onclick="openJourney()"
+            >
+                Build my roadmap →
+            </button>
+
+        </div>
+
+
+        <div class="timeline">
+
+
+            <div class="timeline-step active">
+
+                <div class="timeline-number">
+                    1
+                </div>
+
+                <div>
+                    <small>
+                        DISCOVER
+                    </small>
+
+                    <h3>
+                        Explore medicine
+                    </h3>
+
+                    <p>
+                        Understand the career and decide
+                        whether medicine interests you.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="timeline-connector"></div>
+
+
+            <div class="timeline-step">
+
+                <div class="timeline-number">
+                    2
+                </div>
+
+                <div>
+                    <small>
+                        PREPARE
+                    </small>
+
+                    <h3>
+                        Build your profile
+                    </h3>
+
+                    <p>
+                        Develop your academic knowledge,
+                        experience and understanding.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="timeline-connector"></div>
+
+
+            <div class="timeline-step">
+
+                <div class="timeline-number">
+                    3
+                </div>
+
+                <div>
+                    <small>
+                        APPLY
+                    </small>
+
+                    <h3>
+                        Choose your medical schools
+                    </h3>
+
+                    <p>
+                        Research universities and understand
+                        their selection processes.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="timeline-connector"></div>
+
+
+            <div class="timeline-step">
+
+                <div class="timeline-number">
+                    4
+                </div>
+
+                <div>
+                    <small>
+                        INTERVIEW
+                    </small>
+
+                    <h3>
+                        Prepare with confidence
+                    </h3>
+
+                    <p>
+                        Practise communicating clearly and
+                        reasoning through scenarios.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     FINAL CTA
+========================= -->
+
+<section
+    id="start"
+    class="final-cta"
+>
+
+    <div class="cta-symbol">
+        🩺
+    </div>
+
+    <p class="eyebrow">
+        MEDPATH
+    </p>
+
+    <h2>
+        Wherever you are,
+        <br>
+        <span>start here.</span>
+    </h2>
+
+    <p>
+        Tell MedPath where you are on your journey
+        and discover what could come next.
+    </p>
+
+    <button
+        class="cta-button"
+        onclick="openJourney()"
+    >
+        Start my journey →
+    </button>
+
+</section>
+
+
+</main>
+
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer>
+
+    <div class="footer-logo">
+        🩺 MedPath
+    </div>
+
+    <p>
+        Your path to medicine, in one place.
+    </p>
+
+    <div class="footer-navigation">
+
+        <a href="#home">
+            Home
+        </a>
+
+        <a href="#explore">
+            Explore
+        </a>
+
+        <a href="#ucat">
+            UCAT
+        </a>
+
+        <a href="#universities">
+            Universities
+        </a>
+
+        <a href="#roadmap">
+            Roadmap
+        </a>
+
+    </div>
+
+    <p class="footer-disclaimer">
+        MedPath is an independent student project and is not
+        affiliated with UCAT, UCAS, the NHS or any university.
+    </p>
+
+    <p class="copyright">
+        © 2026 MedPath. All rights reserved.
+    </p>
+
+</footer>
+
+
+
+<!-- =========================
+     JOURNEY MODAL
+========================= -->
+
+<div
+    id="journeyModal"
+    class="modal"
+>
+
+    <div class="modal-content">
+
+        <button
+            class="modal-close"
+            onclick="closeJourney()"
+        >
+            ×
+        </button>
+
+        <div id="journeyQuestion">
+
+            <div class="modal-icon">
+                🩺
+            </div>
+
+            <p class="eyebrow">
+                WELCOME TO MEDPATH
+            </p>
+
+            <h2>
+                Where are you
+                on your journey?
+            </h2>
+
+            <p>
+                Choose the option that best describes you.
+                You can change this later.
+            </p>
+
+            <div class="modal-options">
+
+                <button onclick="completeJourney('exploring')">
+                    🌱 I'm exploring medicine
+                </button>
+
+                <button onclick="completeJourney('studying')">
+                    📚 I'm currently studying
+                </button>
+
+                <button onclick="completeJourney('university')">
+                    🎓 I'm at university
+                </button>
+
+                <button onclick="completeJourney('graduate')">
+                    🔄 I'm a graduate
+                </button>
+
+                <button onclick="completeJourney('applying')">
+                    📝 I'm applying this year
+                </button>
+
+                <button onclick="completeJourney('international')">
+                    🌍 I'm an international applicant
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div
+            id="journeyResult"
+            class="journey-result hidden"
+        >
+
+            <div class="success-icon">
+                ✓
+            </div>
+
+            <p class="eyebrow">
+                YOUR JOURNEY
+            </p>
+
+            <h2 id="resultTitle">
+                Welcome to MedPath
+            </h2>
+
+            <p id="resultText">
+                Your personalised journey will appear here.
+            </p>
+
+            <button
+                class="primary-button"
+                onclick="closeJourney()"
+            >
+                Explore MedPath →
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>
+```
